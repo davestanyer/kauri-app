@@ -189,7 +189,7 @@ export function PivotTable() {
       </div>
 
       {/* Pivot Table */}
-      <div className="overflow-x-auto">
+      <div className="overflow-x-scroll overflow-y-scroll max-h-[70vh] border border-gray-200 rounded-lg">
         <Table className="table-enterprise">
           <TableHeader>
             <TableRow>

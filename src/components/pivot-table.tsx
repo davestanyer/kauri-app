@@ -189,45 +189,46 @@ export function PivotTable() {
       </div>
 
       {/* Pivot Table */}
-      <div className="overflow-x-scroll overflow-y-scroll max-h-[70vh] border border-gray-200 rounded-lg">
-        <Table className="table-enterprise">
+      <div className="overflow-auto max-h-[70vh] border border-gray-200 rounded-lg" style={{scrollbarGutter: 'stable'}}>
+        <div className="min-w-max">
+          <Table className="table-enterprise w-full">
           <TableHeader>
             <TableRow>
-              <TableHead className="sticky left-0 bg-gray-50 border-r border-gray-200 min-w-32">Item ID</TableHead>
-              <TableHead className="sticky left-32 bg-gray-50 border-r border-gray-200 min-w-80">Description</TableHead>
-              <TableHead className="border-r border-gray-200 min-w-32">Group</TableHead>
-              <TableHead className="border-r border-gray-200 min-w-24">Category</TableHead>
+              <TableHead className="sticky left-0 bg-gray-50 border-r border-gray-200 w-24 min-w-24">Item ID</TableHead>
+              <TableHead className="sticky left-24 bg-gray-50 border-r border-gray-200 w-60 min-w-60">Description</TableHead>
+              <TableHead className="border-r border-gray-200 w-24 min-w-24">Group</TableHead>
+              <TableHead className="border-r border-gray-200 w-20 min-w-20">Category</TableHead>
               {Object.entries(groupedByRegion).map(([region, codes]) => (
                 <TableHead key={region} className="text-center border-r border-gray-200" colSpan={codes.length}>
                   {region}
                 </TableHead>
               ))}
-              <TableHead className="text-right font-semibold min-w-24">Total Qty</TableHead>
-              <TableHead className="text-right min-w-24">Avg Cost</TableHead>
-              <TableHead className="text-right min-w-32">Total Value</TableHead>
+              <TableHead className="text-right font-semibold w-20 min-w-20">Total Qty</TableHead>
+              <TableHead className="text-right w-20 min-w-20">Avg Cost</TableHead>
+              <TableHead className="text-right w-24 min-w-24">Total Value</TableHead>
             </TableRow>
             <TableRow>
               <TableHead className="sticky left-0 bg-gray-50 border-r border-gray-200"></TableHead>
-              <TableHead className="sticky left-32 bg-gray-50 border-r border-gray-200"></TableHead>
+              <TableHead className="sticky left-24 bg-gray-50 border-r border-gray-200"></TableHead>
               <TableHead className="border-r border-gray-200"></TableHead>
               <TableHead className="border-r border-gray-200"></TableHead>
               {Object.entries(groupedByRegion).map(([region, codes]) => 
                 codes.map(code => (
-                  <TableHead key={`${region}-${code}`} className="text-center text-xs min-w-20">{code}</TableHead>
+                  <TableHead key={`${region}-${code}`} className="text-center text-xs w-16 min-w-16">{code}</TableHead>
                 ))
               )}
-              <TableHead></TableHead>
-              <TableHead></TableHead>
-              <TableHead></TableHead>
+              <TableHead className="w-20 min-w-20">Total Qty</TableHead>
+              <TableHead className="w-20 min-w-20">Avg Cost</TableHead>
+              <TableHead className="w-24 min-w-24">Total Value</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {filteredData.map((item, index) => (
               <TableRow key={`${item.itemId}-${index}`} className="hover:bg-gray-50">
-                <TableCell className="sticky left-0 bg-white border-r border-gray-100 text-sm font-medium">
+                <TableCell className="sticky left-0 bg-white border-r border-gray-100 text-sm font-medium w-24">
                   {item.itemId}
                 </TableCell>
-                <TableCell className="sticky left-32 bg-white border-r border-gray-100 text-sm max-w-xs">
+                <TableCell className="sticky left-24 bg-white border-r border-gray-100 text-sm w-60">
                   <div className="truncate" title={item.itemDesc}>
                     {item.itemDesc}
                   </div>
@@ -271,6 +272,7 @@ export function PivotTable() {
             ))}
           </TableBody>
         </Table>
+        </div>
       </div>
 
       {/* Footer */}

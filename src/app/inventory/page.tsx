@@ -13,7 +13,7 @@ export default function InventoryPage() {
             Inventory Management
           </h1>
           <p className="text-gray-600 text-sm">
-            Real-time tracking for Kauri's premium barrel and bottle collection
+            Real-time tracking for Kauri&apos;s premium barrel and bottle collection
           </p>
         </div>
 

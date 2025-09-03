@@ -6,7 +6,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { Tooltip } from "@/components/ui/tooltip";
 import { ColumnVisibility } from "@/components/column-visibility";
 import { parseCSV, pivotData, getUniqueValues, type InventoryRow, type PivotedItem } from "@/lib/csv-parser";
 import { exportToExcel } from "@/lib/export-utils";
@@ -244,27 +243,17 @@ export function PivotTable() {
                     const quantity = item.quantities[code] || 0;
                     const lots = item.lotDetails[code] || [];
                     
-                    const tooltipContent = lots.length > 0 ? (
-                      <div className="space-y-1 max-w-xs">
-                        <div className="font-semibold">Lot Details:</div>
-                        {lots.map((lot, idx) => (
-                          <div key={idx} className="text-xs">
-                            <div>{lot.lotId}: {lot.qty.toLocaleString()} units</div>
-                            <div className="text-gray-300">First: {lot.firstDate}</div>
-                          </div>
-                        ))}
-                      </div>
-                    ) : null;
                     
                     return (
                       <TableCell key={`${region}-${code}`} className="text-right text-sm">
                         {quantity > 0 ? (
-                          tooltipContent ? (
-                            <Tooltip content={tooltipContent}>
-                              <span className="cursor-help hover:bg-blue-50 px-1 py-0.5 rounded">
-                                {quantity.toLocaleString()}
-                              </span>
-                            </Tooltip>
+                          lots.length > 0 ? (
+                            <span 
+                              className="cursor-help hover:bg-blue-50 px-1 py-0.5 rounded"
+                              title={`Lot Details:\n${lots.map(lot => `${lot.lotId}: ${lot.qty.toLocaleString()} units (First: ${lot.firstDate})`).join('\n')}`}
+                            >
+                              {quantity.toLocaleString()}
+                            </span>
                           ) : (
                             <span>{quantity.toLocaleString()}</span>
                           )

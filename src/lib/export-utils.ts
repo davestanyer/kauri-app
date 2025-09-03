@@ -13,7 +13,7 @@ export function exportToExcel(
   
   // Prepare data for export
   const exportData = data.map(item => {
-    const row: any = {
+    const row: Record<string, string | number> = {
       'Item ID': item.itemId,
       'Description': item.itemDesc,
       'Group': item.group,

@@ -41,7 +41,7 @@ export function parseCSV(csvContent: string): InventoryRow[] {
   
   return lines.slice(1).map(line => {
     const values = parseCSVLine(line);
-    const row: any = {};
+    const row: Record<string, string | number> = {};
     
     headers.forEach((header, index) => {
       const value = values[index]?.trim() || '';
@@ -52,7 +52,7 @@ export function parseCSV(csvContent: string): InventoryRow[] {
       }
     });
     
-    return row as InventoryRow;
+    return row as unknown as InventoryRow;
   });
 }
 

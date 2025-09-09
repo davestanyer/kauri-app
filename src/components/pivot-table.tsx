@@ -1,14 +1,13 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { ColumnVisibility } from "@/components/column-visibility";
 import { CustomTooltip } from "@/components/ui/custom-tooltip";
-import { parseCSV, pivotData, getUniqueValues, getUniqueWarehouseNames, getWarehouseMapping, getUniqueCompanies, type InventoryRow, type PivotedItem } from "@/lib/csv-parser";
+import { parseCSV, pivotData, getUniqueValues, getUniqueWarehouseNames, getUniqueCompanies, type InventoryRow, type PivotedItem } from "@/lib/csv-parser";
 import { exportToExcel } from "@/lib/export-utils";
 import { Search, Download } from "lucide-react";
 
@@ -236,7 +235,7 @@ export function PivotTable() {
   const columnLayout = getColumnLayout();
 
   // BULLETPROOF: Shared rendering function that ensures identical widths
-  const renderWarehouseColumns = (isHeader: boolean = false, item?: any) => {
+  const renderWarehouseColumns = (isHeader: boolean = false, item?: PivotedItem) => {
     return columnLayout.warehouseRegions.map(({ region, totalWidth, warehouses }) => (
       <div key={region} className="flex flex-col border-r border-gray-200 flex-shrink-0">
         {isHeader && (
@@ -279,7 +278,7 @@ export function PivotTable() {
                             <div className="font-semibold mb-2 text-yellow-300">{name}</div>
                             <div className="font-medium mb-1 text-blue-300">Lot Details:</div>
                             <div className="space-y-1">
-                              {lots.map((lot: any, idx: number) => (
+                              {lots.map((lot, idx: number) => (
                                 <div key={idx} className="flex justify-between gap-3">
                                   <span className="text-gray-300">{lot.lotId}:</span>
                                   <span className="font-medium">{lot.qty.toLocaleString()} units</span>
@@ -526,7 +525,7 @@ export function PivotTable() {
                                 <div className="font-semibold mb-2 text-yellow-300">Purchase Orders by Warehouse</div>
                                 <div className="space-y-1">
                                   {Object.entries(item.quantitiesOnPO || {})
-                                    .filter(([_, qty]) => qty !== 0)
+                                    .filter(([, qty]) => qty !== 0)
                                     .map(([warehouse, qty]) => (
                                       <div key={warehouse} className="flex justify-between gap-3">
                                         <span className="text-gray-300">{warehouse}:</span>
@@ -559,7 +558,7 @@ export function PivotTable() {
                                 <div className="font-semibold mb-2 text-yellow-300">Sales Orders by Warehouse</div>
                                 <div className="space-y-1">
                                   {Object.entries(item.quantitiesOnSO || {})
-                                    .filter(([_, qty]) => qty !== 0)
+                                    .filter(([, qty]) => qty !== 0)
                                     .map(([warehouse, qty]) => (
                                       <div key={warehouse} className="flex justify-between gap-3">
                                         <span className="text-gray-300">{warehouse}:</span>

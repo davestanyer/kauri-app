@@ -275,9 +275,6 @@ export function InventoryTable() {
     return item.sa013 + item.sa021 + item.sa015 + item.other;
   };
 
-  const getTotalValue = (item: typeof inventoryData[0]) => {
-    return getTotalStock(item) * item.unitCost;
-  };
 
   return (
     <div className="w-full">

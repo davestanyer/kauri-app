@@ -1,12 +1,10 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
 import { parseCSV, getUniqueValues, type InventoryRow } from "@/lib/csv-parser";
 import { 
   BarChart3, 
-  TrendingUp, 
   TrendingDown,
   AlertCircle, 
   MapPin,
@@ -40,11 +38,9 @@ export function AvailabilityDashboard() {
   }
 
   // Key metrics for sales reps
-  const totalItems = getUniqueValues(data, 'ITEMID').length;
   const totalQuantity = data.reduce((sum, row) => sum + row.QtyOnHand, 0);
   const totalValue = data.reduce((sum, row) => sum + (row.AmountOnHand || 0), 0);
   const totalRegions = getUniqueValues(data, 'WHRegion').length;
-  const totalWarehouses = getUniqueValues(data, 'wmcode').length;
   
   // Items with stock
   const itemsWithStock = data.filter(row => row.QtyOnHand > 0);

@@ -60,7 +60,7 @@ export function parseCSV(csvContent: string): InventoryRow[] {
   const lines = csvContent.trim().split(/\r?\n/); // Handle both \n and \r\n line endings
   const headers = parseCSVLine(lines[0]).map(header => header.trim().replace(/\r$/, '')); // Remove carriage returns
   
-  return lines.slice(1).map((line, lineIndex) => {
+  return lines.slice(1).map((line) => {
     const values = parseCSVLine(line);
     const row: Record<string, string | number> = {};
     

@@ -6,11 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { parseCSV, getUniqueValues, type InventoryRow } from "@/lib/csv-parser";
 import { 
   TrendingUp, 
-  TrendingDown, 
   AlertTriangle, 
-  MapPin,
-  Package,
-  Clock
+  MapPin
 } from "lucide-react";
 
 interface RegionalStats {

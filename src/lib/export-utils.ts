@@ -17,7 +17,6 @@ export function exportToExcel(
       'Item ID': item.itemId,
       'Description': item.itemDesc,
       'Group': item.group,
-      'Category': item.category,
     };
     
     // Add quantities for visible warehouses
@@ -26,9 +25,10 @@ export function exportToExcel(
     });
     
     // Add summary columns
-    row['Total Qty'] = item.totalQty;
-    row['Avg Cost'] = item.avgCost.toFixed(2);
-    row['Total Value'] = item.totalValue.toFixed(2);
+    row['Total On Hand'] = item.totalQty;
+    row['Qty on PO'] = item.totalQtyOnPO;
+    row['Qty on SO'] = item.totalQtyOnSO;
+    row['Qty Available'] = item.qtyAvailable;
     
     return row;
   });
@@ -41,11 +41,11 @@ export function exportToExcel(
     { wch: 15 }, // Item ID
     { wch: 40 }, // Description
     { wch: 15 }, // Group
-    { wch: 15 }, // Category
     ...visibleWmCodes.map(() => ({ wch: 10 })), // Warehouse columns
-    { wch: 12 }, // Total Qty
-    { wch: 10 }, // Avg Cost
-    { wch: 12 }, // Total Value
+    { wch: 15 }, // Total On Hand
+    { wch: 12 }, // Qty on PO
+    { wch: 12 }, // Qty on SO
+    { wch: 15 }, // Qty Available
   ];
   ws['!cols'] = colWidths;
   

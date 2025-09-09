@@ -59,13 +59,13 @@ export function SalesAnalytics() {
   const regionalStats: RegionalStats[] = getUniqueValues(data, 'WHRegion').map(region => {
     const regionData = data.filter(row => row.WHRegion === region);
     const warehouses = getUniqueValues(regionData, 'wmcode').length;
-    const lowStockItems = regionData.filter(row => row.QTY > 0 && row.QTY <= 50).length;
+    const lowStockItems = regionData.filter(row => row.QtyOnHand > 0 && row.QtyOnHand <= 50).length;
     
     return {
       region,
       totalItems: getUniqueValues(regionData, 'ITEMID').length,
-      totalQty: regionData.reduce((sum, row) => sum + row.QTY, 0),
-      totalValue: regionData.reduce((sum, row) => sum + (row.Amount || 0), 0),
+      totalQty: regionData.reduce((sum, row) => sum + row.QtyOnHand, 0),
+      totalValue: regionData.reduce((sum, row) => sum + (row.AmountOnHand || 0), 0),
       warehouses,
       lowStockItems
     };
@@ -74,12 +74,12 @@ export function SalesAnalytics() {
   // Calculate category statistics
   const categoryStats: CategoryStats[] = getUniqueValues(data, 'GRP').map(category => {
     const categoryData = data.filter(row => row.GRP === category);
-    const totalValue = categoryData.reduce((sum, row) => sum + (row.Amount || 0), 0);
+    const totalValue = categoryData.reduce((sum, row) => sum + (row.AmountOnHand || 0), 0);
     const items = getUniqueValues(categoryData, 'ITEMID').length;
     
     return {
       category,
-      totalQty: categoryData.reduce((sum, row) => sum + row.QTY, 0),
+      totalQty: categoryData.reduce((sum, row) => sum + row.QtyOnHand, 0),
       totalValue,
       items,
       avgValue: items > 0 ? totalValue / items : 0
@@ -88,14 +88,14 @@ export function SalesAnalytics() {
 
   // Low stock alerts
   const lowStockAlerts = data
-    .filter(row => row.QTY > 0 && row.QTY <= 20)
-    .sort((a, b) => a.QTY - b.QTY)
+    .filter(row => row.QtyOnHand > 0 && row.QtyOnHand <= 20)
+    .sort((a, b) => a.QtyOnHand - b.QtyOnHand)
     .slice(0, 8);
 
   // High value items
   const highValueItems = data
-    .filter(row => (row.Amount || 0) > 1000)
-    .sort((a, b) => (b.Amount || 0) - (a.Amount || 0))
+    .filter(row => (row.AmountOnHand || 0) > 1000)
+    .sort((a, b) => (b.AmountOnHand || 0) - (a.AmountOnHand || 0))
     .slice(0, 6);
 
   return (
@@ -178,7 +178,7 @@ export function SalesAnalytics() {
                     <div className="text-xs text-gray-500">{item.ITEMID} • {item.wmcode}</div>
                   </div>
                   <div className="text-right">
-                    <div className="text-sm font-bold text-red-600">{item.QTY}</div>
+                    <div className="text-sm font-bold text-red-600">{item.QtyOnHand}</div>
                     <div className="text-xs text-gray-500">units left</div>
                   </div>
                 </div>
@@ -204,8 +204,8 @@ export function SalesAnalytics() {
                     <div className="text-xs text-gray-500">{item.ITEMID} • {item.wmcode}</div>
                   </div>
                   <div className="text-right">
-                    <div className="text-sm font-bold text-green-600">${(item.Amount || 0).toLocaleString()}</div>
-                    <div className="text-xs text-gray-500">{item.QTY} units</div>
+                    <div className="text-sm font-bold text-green-600">${(item.AmountOnHand || 0).toLocaleString()}</div>
+                    <div className="text-xs text-gray-500">{item.QtyOnHand} units</div>
                   </div>
                 </div>
               ))}

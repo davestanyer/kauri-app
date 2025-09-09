@@ -1,13 +1,14 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { ColumnVisibility } from "@/components/column-visibility";
-import { parseCSV, pivotData, getUniqueValues, type InventoryRow, type PivotedItem } from "@/lib/csv-parser";
+import { CustomTooltip } from "@/components/ui/custom-tooltip";
+import { parseCSV, pivotData, getUniqueValues, getUniqueWarehouseNames, getWarehouseMapping, getUniqueCompanies, type InventoryRow, type PivotedItem } from "@/lib/csv-parser";
 import { exportToExcel } from "@/lib/export-utils";
 import { Search, Download } from "lucide-react";
 
@@ -32,15 +33,18 @@ const groupColors = {
 export function PivotTable() {
   const [data, setData] = useState<InventoryRow[]>([]);
   const [pivotedData, setPivotedData] = useState<PivotedItem[]>([]);
-  const [wmCodes, setWmCodes] = useState<string[]>([]);
+  const [warehouseNames, setWarehouseNames] = useState<string[]>([]);
   const [regions, setRegions] = useState<string[]>([]);
   const [groups, setGroups] = useState<string[]>([]);
-  const [categories, setCategories] = useState<string[]>([]);
+  const [companies, setCompanies] = useState<string[]>([]);
   const [selectedGroup, setSelectedGroup] = useState<string>("all");
-  const [selectedCategory, setSelectedCategory] = useState<string>("all");
+  const [selectedCompany, setSelectedCompany] = useState<string>("");
   const [searchText, setSearchText] = useState<string>("");
   const [visibleColumns, setVisibleColumns] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(true);
+  const [containerWidth, setContainerWidth] = useState<number>(0);
+  const [headerScrollRef, setHeaderScrollRef] = useState<HTMLDivElement | null>(null);
+  const [bodyScrollRef, setBodyScrollRef] = useState<HTMLDivElement | null>(null);
 
   useEffect(() => {
     const loadData = async () => {
@@ -50,15 +54,33 @@ export function PivotTable() {
         const parsed = parseCSV(csvContent);
         
         setData(parsed);
-        setPivotedData(pivotData(parsed));
-        setWmCodes(getUniqueValues(parsed, 'wmcode'));
-        setRegions(getUniqueValues(parsed, 'WHRegion'));
-        setGroups(getUniqueValues(parsed, 'GRP'));
-        setCategories(getUniqueValues(parsed, 'UCat'));
+        const availableCompanies = getUniqueCompanies(parsed).filter(company => 
+          company && company !== 'undefined' && company !== 'null' && company.trim() !== ''
+        );
+        
+        setCompanies(availableCompanies);
+        
+        // Determine which company to use for initial load
+        let filteredData = parsed; // Default to all data
+        
+        if (availableCompanies.length > 0) {
+          // Use KALP if available, otherwise use first available company
+          const initialCompany = availableCompanies.includes("KALP") ? "KALP" : availableCompanies[0];
+          setSelectedCompany(initialCompany);
+          filteredData = parsed.filter(row => row.Company === initialCompany);
+        } else {
+          // No companies available, use all data and don't set a selected company
+          setSelectedCompany("");
+        }
+          
+        setPivotedData(pivotData(filteredData));
+        setWarehouseNames(getUniqueWarehouseNames(filteredData));
+        setRegions(getUniqueValues(filteredData, 'WHRegion'));
+        setGroups(getUniqueValues(filteredData, 'GRP'));
         
         // Initialize all columns as visible
-        const initialVisibility = getUniqueValues(parsed, 'wmcode').reduce((acc, code) => {
-          acc[code] = true;
+        const initialVisibility = getUniqueWarehouseNames(filteredData).reduce((acc, name) => {
+          acc[name] = true;
           return acc;
         }, {} as Record<string, boolean>);
         setVisibleColumns(initialVisibility);
@@ -72,35 +94,234 @@ export function PivotTable() {
     loadData();
   }, []);
 
-  const filteredData = pivotedData.filter(item => {
-    if (selectedGroup !== "all" && item.group !== selectedGroup) return false;
-    if (selectedCategory !== "all" && item.category !== selectedCategory) return false;
-    if (searchText && !item.itemId.toLowerCase().includes(searchText.toLowerCase()) && 
-        !item.itemDesc.toLowerCase().includes(searchText.toLowerCase())) return false;
-    return true;
-  });
+  // Update data when company filter changes
+  useEffect(() => {
+    if (data.length > 0 && companies.length > 0 && selectedCompany) {
+      const filteredData = data.filter(row => row.Company === selectedCompany);
+      setPivotedData(pivotData(filteredData));
+      setWarehouseNames(getUniqueWarehouseNames(filteredData));
+      setRegions(getUniqueValues(filteredData, 'WHRegion'));
+      setGroups(getUniqueValues(filteredData, 'GRP'));
+      
+      // Reset column visibility for new data
+      const initialVisibility = getUniqueWarehouseNames(filteredData).reduce((acc, name) => {
+        acc[name] = true;
+        return acc;
+      }, {} as Record<string, boolean>);
+      setVisibleColumns(initialVisibility);
+    }
+  }, [selectedCompany, data, companies]);
+
+  // Track container width for responsive column sizing
+  useEffect(() => {
+    const updateWidth = () => {
+      const container = document.querySelector('.pivot-table-container');
+      if (container) {
+        setContainerWidth(container.clientWidth);
+      }
+    };
+
+    updateWidth();
+    window.addEventListener('resize', updateWidth);
+    return () => window.removeEventListener('resize', updateWidth);
+  }, []);
+
+  // Sync scroll between header and body
+  useEffect(() => {
+    if (!headerScrollRef || !bodyScrollRef) return;
+
+    const handleHeaderScroll = () => {
+      bodyScrollRef.scrollLeft = headerScrollRef.scrollLeft;
+    };
+
+    const handleBodyScroll = () => {
+      headerScrollRef.scrollLeft = bodyScrollRef.scrollLeft;
+    };
+
+    headerScrollRef.addEventListener('scroll', handleHeaderScroll);
+    bodyScrollRef.addEventListener('scroll', handleBodyScroll);
+
+    return () => {
+      headerScrollRef.removeEventListener('scroll', handleHeaderScroll);
+      bodyScrollRef.removeEventListener('scroll', handleBodyScroll);
+    };
+  }, [headerScrollRef, bodyScrollRef]);
+
+  const filteredData = pivotedData
+    .filter(item => {
+      if (selectedGroup !== "all" && item.group !== selectedGroup) return false;
+      if (searchText && !item.itemId.toLowerCase().includes(searchText.toLowerCase()) && 
+          !item.itemDesc.toLowerCase().includes(searchText.toLowerCase())) return false;
+      return true;
+    })
+    .sort((a, b) => {
+      // Sort by group first, then by itemId
+      if (a.group !== b.group) {
+        return a.group.localeCompare(b.group);
+      }
+      return a.itemId.localeCompare(b.itemId);
+    });
   
-  const visibleWmCodes = wmCodes.filter(code => visibleColumns[code]);
+  const visibleWarehouseNames = warehouseNames.filter(name => visibleColumns[name]);
+
+  // Calculate optimal column widths based on available space
+  const getOptimalColumnWidth = () => {
+    if (containerWidth === 0) return 90; // Default width
+    
+    const fixedColumnsWidth = 580; // Item ID (140) + Description (300) + Group (140)
+    const summaryColumnsWidth = 320; // 4 columns × 80px
+    const availableWidth = containerWidth - fixedColumnsWidth - summaryColumnsWidth - 50; // 50px for margins/scrollbar
+    const totalWarehouseColumns = visibleWarehouseNames.length;
+    
+    if (totalWarehouseColumns === 0) return 90;
+    
+    const optimalWidth = Math.max(90, Math.min(140, Math.floor(availableWidth / totalWarehouseColumns)));
+    return optimalWidth;
+  };
+
+  const warehouseColumnWidth = getOptimalColumnWidth();
+
+  // BULLETPROOF ALIGNMENT: Single immutable width calculation
+  const getColumnLayout = () => {
+    // Fixed column widths - NEVER CHANGE THESE
+    const FIXED_COLUMNS = {
+      itemId: 140,
+      description: 300, 
+      group: 140
+    };
+    
+    // Summary column widths - NEVER CHANGE THESE
+    const SUMMARY_COLUMNS = {
+      total: 320,
+      individual: 80
+    };
+
+    // Calculate warehouse region layouts with IMMUTABLE logic
+    const warehouseRegions = Object.entries(groupedByRegion).map(([region, warehouses]) => {
+      // IMMUTABLE: Region width calculation
+      const regionTextWidth = region.length * 8;
+      const minWarehouseWidth = warehouses.length * warehouseColumnWidth;
+      const regionTotalWidth = Math.max(regionTextWidth, minWarehouseWidth);
+      
+      // IMMUTABLE: Each warehouse gets EXACTLY the same width
+      const warehouseWidth = regionTotalWidth / warehouses.length;
+
+      return {
+        region,
+        totalWidth: regionTotalWidth,
+        warehouses: warehouses.map(warehouse => ({
+          name: warehouse,
+          width: warehouseWidth // EXACTLY the same for all warehouses in this region
+        }))
+      };
+    });
+
+    return {
+      fixedColumns: FIXED_COLUMNS,
+      summaryColumns: SUMMARY_COLUMNS,
+      warehouseRegions
+    };
+  };
+
+  const groupedByRegion = regions.reduce((acc, region) => {
+    const regionWarehouses = visibleWarehouseNames.filter(name => 
+      name && name.trim() !== '' && data.some(row => row.WH_Name === name && row.WHRegion === region)
+    );
+    if (regionWarehouses.length > 0) {
+      acc[region] = regionWarehouses;
+    }
+    return acc;
+  }, {} as Record<string, string[]>);
+
+  const columnLayout = getColumnLayout();
+
+  // BULLETPROOF: Shared rendering function that ensures identical widths
+  const renderWarehouseColumns = (isHeader: boolean = false, item?: any) => {
+    return columnLayout.warehouseRegions.map(({ region, totalWidth, warehouses }) => (
+      <div key={region} className="flex flex-col border-r border-gray-200 flex-shrink-0">
+        {isHeader && (
+          <div 
+            className="px-2 py-2 text-sm font-semibold text-center border-b border-gray-300 bg-slate-50" 
+            style={{ 
+              minWidth: `${totalWidth}px`,
+              width: `${totalWidth}px`
+            }}
+          >
+            {region}
+          </div>
+        )}
+        <div 
+          className="flex bg-slate-50" 
+          style={{ 
+            minWidth: `${totalWidth}px`,
+            width: `${totalWidth}px`
+          }}
+        >
+          {warehouses.map(({ name, width }) => (
+            <div 
+              key={name} 
+              className="px-1 py-2 text-xs text-center border-r border-gray-100 whitespace-normal break-words" 
+              style={{ 
+                minWidth: `${width}px`, 
+                width: `${width}px`
+              }}
+            >
+              {isHeader ? name : (
+                item ? (() => {
+                  const quantity = item.quantities[name] || 0;
+                  const lots = item.lotDetails[name] || [];
+                  
+                  return quantity > 0 ? (
+                    lots.length > 0 ? (
+                      <CustomTooltip
+                        content={
+                          <div>
+                            <div className="font-semibold mb-2 text-yellow-300">{name}</div>
+                            <div className="font-medium mb-1 text-blue-300">Lot Details:</div>
+                            <div className="space-y-1">
+                              {lots.map((lot: any, idx: number) => (
+                                <div key={idx} className="flex justify-between gap-3">
+                                  <span className="text-gray-300">{lot.lotId}:</span>
+                                  <span className="font-medium">{lot.qty.toLocaleString()} units</span>
+                                </div>
+                              ))}
+                            </div>
+                            {lots[0]?.firstDate && (
+                              <div className="mt-2 pt-2 border-t border-gray-700 text-xs text-gray-400">
+                                First: {lots[0].firstDate}
+                              </div>
+                            )}
+                          </div>
+                        }
+                      >
+                        <span className="hover:bg-blue-50 px-1 py-0.5 rounded inline-block">
+                          {quantity.toLocaleString()}
+                        </span>
+                      </CustomTooltip>
+                    ) : (
+                      <span>{quantity.toLocaleString()}</span>
+                    )
+                  ) : (
+                    <span className="text-gray-400">-</span>
+                  );
+                })() : '-'
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+    ));
+  };
 
   const handleExport = () => {
     exportToExcel(
       filteredData,
-      wmCodes,
+      warehouseNames,
       visibleColumns,
       groupedByRegion,
       'kauri-inventory'
     );
   };
-
-  const groupedByRegion = regions.reduce((acc, region) => {
-    const regionCodes = visibleWmCodes.filter(code => 
-      data.some(row => row.wmcode === code && row.WHRegion === region)
-    );
-    if (regionCodes.length > 0) {
-      acc[region] = regionCodes;
-    }
-    return acc;
-  }, {} as Record<string, string[]>);
 
   if (loading) {
     return (
@@ -115,7 +336,7 @@ export function PivotTable() {
   }
 
   return (
-    <div className="w-full">
+    <div className="w-full pivot-table-container max-w-none">
       {/* Header with Filters */}
       <div className="bg-white border-b border-gray-200 px-6 py-4">
         <div className="flex items-center justify-between mb-4">
@@ -125,16 +346,27 @@ export function PivotTable() {
           </div>
           <div className="flex items-center gap-3">
             <ColumnVisibility
-              columns={wmCodes}
+              columns={warehouseNames}
               visibleColumns={visibleColumns}
               onToggle={(column) => setVisibleColumns(prev => ({ ...prev, [column]: !prev[column] }))}
               onToggleAll={(visible) => {
-                const newState = wmCodes.reduce((acc, code) => {
-                  acc[code] = visible;
+                const newState = warehouseNames.reduce((acc, name) => {
+                  acc[name] = visible;
                   return acc;
                 }, {} as Record<string, boolean>);
                 setVisibleColumns(newState);
               }}
+              onToggleRegion={(region, visible) => {
+                const regionWarehouses = groupedByRegion[region] || [];
+                setVisibleColumns(prev => {
+                  const newState = { ...prev };
+                  regionWarehouses.forEach(warehouse => {
+                    newState[warehouse] = visible;
+                  });
+                  return newState;
+                });
+              }}
+              groupedByRegion={groupedByRegion}
             />
             <Button variant="outline" size="sm" onClick={handleExport}>
               <Download className="w-4 h-4 mr-2" />
@@ -145,6 +377,23 @@ export function PivotTable() {
         
         {/* Filters */}
         <div className="flex items-center gap-4 flex-wrap">
+          {/* Company Filter - only show if companies are available */}
+          {companies.length > 0 && (
+            <div className="flex items-center gap-2">
+              <label className="text-sm font-medium text-gray-700">Company:</label>
+              <Select value={selectedCompany || ""} onValueChange={setSelectedCompany}>
+                <SelectTrigger className="w-32">
+                  <SelectValue placeholder="Select company" />
+                </SelectTrigger>
+                <SelectContent>
+                  {companies.map(company => (
+                    <SelectItem key={company} value={company}>{company}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
           {/* Search */}
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
@@ -170,108 +419,181 @@ export function PivotTable() {
               </SelectContent>
             </Select>
           </div>
-          
-          <div className="flex items-center gap-2">
-            <label className="text-sm font-medium text-gray-700">Category:</label>
-            <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-              <SelectTrigger className="w-40">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Categories</SelectItem>
-                {categories.map(category => (
-                  <SelectItem key={category} value={category}>{category}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
         </div>
       </div>
 
       {/* Pivot Table */}
-      <div className="overflow-auto max-h-[70vh] border border-gray-200 rounded-lg" style={{scrollbarGutter: 'stable'}}>
-        <div className="min-w-max">
-          <Table className="table-enterprise w-full">
-          <TableHeader>
-            <TableRow>
-              <TableHead className="sticky left-0 bg-gray-50 border-r border-gray-200 w-24 min-w-24">Item ID</TableHead>
-              <TableHead className="sticky left-24 bg-gray-50 border-r border-gray-200 w-60 min-w-60">Description</TableHead>
-              <TableHead className="border-r border-gray-200 w-24 min-w-24">Group</TableHead>
-              <TableHead className="border-r border-gray-200 w-20 min-w-20">Category</TableHead>
-              {Object.entries(groupedByRegion).map(([region, codes]) => (
-                <TableHead key={region} className="text-center border-r border-gray-200" colSpan={codes.length}>
-                  {region}
-                </TableHead>
-              ))}
-              <TableHead className="text-right font-semibold w-20 min-w-20">Total Qty</TableHead>
-              <TableHead className="text-right w-20 min-w-20">Avg Cost</TableHead>
-              <TableHead className="text-right w-24 min-w-24">Total Value</TableHead>
-            </TableRow>
-            <TableRow>
-              <TableHead className="sticky left-0 bg-gray-50 border-r border-gray-200"></TableHead>
-              <TableHead className="sticky left-24 bg-gray-50 border-r border-gray-200"></TableHead>
-              <TableHead className="border-r border-gray-200"></TableHead>
-              <TableHead className="border-r border-gray-200"></TableHead>
-              {Object.entries(groupedByRegion).map(([region, codes]) => 
-                codes.map(code => (
-                  <TableHead key={`${region}-${code}`} className="text-center text-xs w-16 min-w-16">{code}</TableHead>
-                ))
-              )}
-              <TableHead className="w-20 min-w-20">Total Qty</TableHead>
-              <TableHead className="w-20 min-w-20">Avg Cost</TableHead>
-              <TableHead className="w-24 min-w-24">Total Value</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filteredData.map((item, index) => (
-              <TableRow key={`${item.itemId}-${index}`} className="hover:bg-gray-50">
-                <TableCell className="sticky left-0 bg-white border-r border-gray-100 text-sm font-medium w-24">
-                  {item.itemId}
-                </TableCell>
-                <TableCell className="sticky left-24 bg-white border-r border-gray-100 text-sm w-60">
-                  <div className="truncate" title={item.itemDesc}>
-                    {item.itemDesc}
-                  </div>
-                </TableCell>
-                <TableCell className="border-r border-gray-100">
-                  <Badge className={`text-xs px-2 py-1 rounded-md font-medium border ${groupColors[item.group as keyof typeof groupColors] || "bg-gray-100 text-gray-800 border-gray-200"}`}>
-                    {item.group}
-                  </Badge>
-                </TableCell>
-                <TableCell className="border-r border-gray-100 text-sm">{item.category}</TableCell>
-                {Object.entries(groupedByRegion).map(([region, codes]) => 
-                  codes.map(code => {
-                    const quantity = item.quantities[code] || 0;
-                    const lots = item.lotDetails[code] || [];
+      <div className="border border-gray-200 rounded-lg overflow-hidden w-full">
+        {/* Scrollable Header - syncs with body */}
+        <div className="bg-slate-50 border-b border-gray-200 sticky top-0 z-20">
+          <div 
+            className="overflow-x-auto"
+            ref={setHeaderScrollRef}
+          >
+            <div className="flex min-w-full">
+            {/* Fixed columns - using single source of truth */}
+            <div className="flex bg-slate-50 border-r border-gray-200 flex-shrink-0">
+              <div className="px-3 py-2 text-sm font-medium border-r border-gray-200" style={{ minWidth: `${columnLayout.fixedColumns.itemId}px`, width: `${columnLayout.fixedColumns.itemId}px` }}>Item ID</div>
+              <div className="px-3 py-2 text-sm font-medium border-r border-gray-200" style={{ minWidth: `${columnLayout.fixedColumns.description}px`, width: `${columnLayout.fixedColumns.description}px` }}>Description</div>
+              <div className="px-3 py-2 text-sm font-medium border-r border-gray-200" style={{ minWidth: `${columnLayout.fixedColumns.group}px`, width: `${columnLayout.fixedColumns.group}px` }}>Group</div>
+            </div>
+            
+             {/* Summary columns - using single source of truth */}
+             <div className="flex flex-col flex-shrink-0 border-r border-gray-300" style={{ minWidth: `${columnLayout.summaryColumns.total}px` }}>
+               <div className="px-2 py-2 text-sm font-semibold text-center border-b border-gray-300 bg-slate-50" style={{ minWidth: `${columnLayout.summaryColumns.total}px` }}>
+                 Summary
+               </div>
+               <div className="flex bg-slate-50">
+                 <div className="px-2 py-2 text-xs font-medium text-center border-r border-gray-200" style={{ minWidth: `${columnLayout.summaryColumns.individual}px`, width: `${columnLayout.summaryColumns.individual}px` }}>Total Qty on Hand</div>
+                 <div className="px-2 py-2 text-xs font-medium text-center border-r border-gray-200" style={{ minWidth: `${columnLayout.summaryColumns.individual}px`, width: `${columnLayout.summaryColumns.individual}px` }}>Qty on PO</div>
+                 <div className="px-2 py-2 text-xs font-medium text-center border-r border-gray-200" style={{ minWidth: `${columnLayout.summaryColumns.individual}px`, width: `${columnLayout.summaryColumns.individual}px` }}>Qty on SO</div>
+                 <div className="px-2 py-2 text-xs font-medium text-center" style={{ minWidth: `${columnLayout.summaryColumns.individual}px`, width: `${columnLayout.summaryColumns.individual}px` }}>Qty Available</div>
+               </div>
+             </div>
+            
+             {/* Warehouse columns - BULLETPROOF ALIGNMENT */}
+             {renderWarehouseColumns(true)}
+            </div>
+          </div>
+        </div>
+
+        {/* Scrollable Body */}
+        <div 
+          className="overflow-x-auto max-h-[60vh]" 
+          style={{scrollbarGutter: 'stable'}}
+          ref={setBodyScrollRef}
+        >
+          <div className="min-w-full">
+            {filteredData.map((item, index) => {
+              const isFirstInGroup = index === 0 || filteredData[index - 1].group !== item.group;
+              
+              return (
+                <React.Fragment key={`${item.itemId}-${index}`}>
+                  {isFirstInGroup && (
+                    <div className={`border-t-2 border-gray-300 flex border-b border-gray-100 ${groupColors[item.group as keyof typeof groupColors] || "bg-gray-100"}`}>
+                      {/* Fixed columns - using single source of truth */}
+                      <div className="flex border-r border-gray-200 flex-shrink-0">
+                        <div className="px-3 py-2 text-sm font-medium border-r border-gray-200" style={{ minWidth: `${columnLayout.fixedColumns.itemId}px`, width: `${columnLayout.fixedColumns.itemId}px` }}>
+                          <span className="font-bold">{item.group}</span>
+                        </div>
+                        <div className="px-3 py-2 text-sm border-r border-gray-200" style={{ minWidth: `${columnLayout.fixedColumns.description}px`, width: `${columnLayout.fixedColumns.description}px` }}>
+                          <span className="text-xs opacity-75">
+                            ({filteredData.filter(i => i.group === item.group).length} items)
+                          </span>
+                        </div>
+                        <div className="px-3 py-2 border-r border-gray-200" style={{ minWidth: `${columnLayout.fixedColumns.group}px`, width: `${columnLayout.fixedColumns.group}px` }}></div>
+                      </div>
+                      
+                      {/* Summary columns - using single source of truth */}
+                      <div className="flex flex-shrink-0 border-r border-gray-300" style={{ minWidth: `${columnLayout.summaryColumns.total}px` }}>
+                        <div className="px-2 py-2 text-sm text-right font-semibold border-r border-gray-200" style={{ minWidth: `${columnLayout.summaryColumns.individual}px`, width: `${columnLayout.summaryColumns.individual}px` }}></div>
+                        <div className="px-2 py-2 text-sm text-right border-r border-gray-200" style={{ minWidth: `${columnLayout.summaryColumns.individual}px`, width: `${columnLayout.summaryColumns.individual}px` }}></div>
+                        <div className="px-2 py-2 text-sm text-right border-r border-gray-200" style={{ minWidth: `${columnLayout.summaryColumns.individual}px`, width: `${columnLayout.summaryColumns.individual}px` }}></div>
+                        <div className="px-2 py-2 text-sm text-right font-semibold" style={{ minWidth: `${columnLayout.summaryColumns.individual}px`, width: `${columnLayout.summaryColumns.individual}px` }}></div>
+                      </div>
+                      
+                      {/* Warehouse columns - BULLETPROOF ALIGNMENT */}
+                      {renderWarehouseColumns(false)}
+                    </div>
+                  )}
+                  
+                  <div className="flex hover:bg-gray-50 border-b border-gray-100 min-w-full">
+                    {/* Fixed columns - using single source of truth */}
+                    <div className="flex bg-white border-r border-gray-200 flex-shrink-0">
+                      <div className="px-3 py-2 text-sm font-medium border-r border-gray-200" style={{ minWidth: `${columnLayout.fixedColumns.itemId}px`, width: `${columnLayout.fixedColumns.itemId}px` }}>
+                        {item.itemId}
+                      </div>
+                      <div className="px-3 py-2 text-sm border-r border-gray-200" style={{ minWidth: `${columnLayout.fixedColumns.description}px`, width: `${columnLayout.fixedColumns.description}px` }}>
+                        <div className="truncate" title={item.itemDesc}>
+                          {item.itemDesc}
+                        </div>
+                      </div>
+                      <div className="px-3 py-2 border-r border-gray-200" style={{ minWidth: `${columnLayout.fixedColumns.group}px`, width: `${columnLayout.fixedColumns.group}px` }}>
+                        <Badge className={`text-xs px-2 py-1 rounded-md font-medium border ${groupColors[item.group as keyof typeof groupColors] || "bg-gray-100 text-gray-800 border-gray-200"}`}>
+                          {item.group}
+                        </Badge>
+                      </div>
+                    </div>
                     
-                    
-                    return (
-                      <TableCell key={`${region}-${code}`} className="text-right text-sm">
-                        {quantity > 0 ? (
-                          lots.length > 0 ? (
-                            <span 
-                              className="cursor-help hover:bg-blue-50 px-1 py-0.5 rounded"
-                              title={`Lot Details:\n${lots.map(lot => `${lot.lotId}: ${lot.qty.toLocaleString()} units (First: ${lot.firstDate})`).join('\n')}`}
-                            >
-                              {quantity.toLocaleString()}
+                    {/* Summary columns - using single source of truth */}
+                    <div className="flex flex-shrink-0 border-r border-gray-300" style={{ minWidth: `${columnLayout.summaryColumns.total}px` }}>
+                      <div className="px-2 py-2 text-sm text-right font-semibold border-r border-gray-200" style={{ minWidth: `${columnLayout.summaryColumns.individual}px`, width: `${columnLayout.summaryColumns.individual}px` }}>{item.totalQty.toLocaleString()}</div>
+                      <div className="px-2 py-2 text-sm text-right border-r border-gray-200" style={{ minWidth: `${columnLayout.summaryColumns.individual}px`, width: `${columnLayout.summaryColumns.individual}px` }}>
+                        {item.totalQtyOnPO !== 0 ? (
+                          <CustomTooltip
+                            content={
+                              <div>
+                                <div className="font-semibold mb-2 text-yellow-300">Purchase Orders by Warehouse</div>
+                                <div className="space-y-1">
+                                  {Object.entries(item.quantitiesOnPO || {})
+                                    .filter(([_, qty]) => qty !== 0)
+                                    .map(([warehouse, qty]) => (
+                                      <div key={warehouse} className="flex justify-between gap-3">
+                                        <span className="text-gray-300">{warehouse}:</span>
+                                        <span className="font-medium">{qty.toLocaleString()}</span>
+                                      </div>
+                                    ))}
+                                </div>
+                                <div className="mt-2 pt-2 border-t border-gray-700 text-xs">
+                                  <div className="flex justify-between">
+                                    <span className="text-gray-400">Total:</span>
+                                    <span className="font-bold text-green-300">{item.totalQtyOnPO.toLocaleString()}</span>
+                                  </div>
+                                </div>
+                              </div>
+                            }
+                          >
+                            <span className="hover:bg-green-50 px-1 py-0.5 rounded inline-block cursor-help">
+                              {item.totalQtyOnPO.toLocaleString()}
                             </span>
-                          ) : (
-                            <span>{quantity.toLocaleString()}</span>
-                          )
+                          </CustomTooltip>
                         ) : (
-                          <span className="text-gray-400">-</span>
+                          <span>{item.totalQtyOnPO.toLocaleString()}</span>
                         )}
-                      </TableCell>
-                    );
-                  })
-                )}
-                <TableCell className="text-right text-sm font-bold">{item.totalQty.toLocaleString()}</TableCell>
-                <TableCell className="text-right text-sm">${item.avgCost.toFixed(2)}</TableCell>
-                <TableCell className="text-right text-sm font-semibold">${item.totalValue.toLocaleString()}</TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+                      </div>
+                      <div className="px-2 py-2 text-sm text-right border-r border-gray-200" style={{ minWidth: `${columnLayout.summaryColumns.individual}px`, width: `${columnLayout.summaryColumns.individual}px` }}>
+                        {item.totalQtyOnSO !== 0 ? (
+                          <CustomTooltip
+                            content={
+                              <div>
+                                <div className="font-semibold mb-2 text-yellow-300">Sales Orders by Warehouse</div>
+                                <div className="space-y-1">
+                                  {Object.entries(item.quantitiesOnSO || {})
+                                    .filter(([_, qty]) => qty !== 0)
+                                    .map(([warehouse, qty]) => (
+                                      <div key={warehouse} className="flex justify-between gap-3">
+                                        <span className="text-gray-300">{warehouse}:</span>
+                                        <span className="font-medium">{qty.toLocaleString()}</span>
+                                      </div>
+                                    ))}
+                                </div>
+                                <div className="mt-2 pt-2 border-t border-gray-700 text-xs">
+                                  <div className="flex justify-between">
+                                    <span className="text-gray-400">Total:</span>
+                                    <span className="font-bold text-red-300">{item.totalQtyOnSO.toLocaleString()}</span>
+                                  </div>
+                                </div>
+                              </div>
+                            }
+                          >
+                            <span className="hover:bg-red-50 px-1 py-0.5 rounded inline-block cursor-help">
+                              {item.totalQtyOnSO.toLocaleString()}
+                            </span>
+                          </CustomTooltip>
+                        ) : (
+                          <span>{item.totalQtyOnSO.toLocaleString()}</span>
+                        )}
+                      </div>
+                      <div className={`px-2 py-2 text-sm text-right font-semibold ${item.qtyAvailable < 0 ? 'text-red-600' : 'text-green-700'}`} style={{ minWidth: `${columnLayout.summaryColumns.individual}px`, width: `${columnLayout.summaryColumns.individual}px` }}>{item.qtyAvailable.toLocaleString()}</div>
+                    </div>
+                    
+                     {/* Warehouse columns - BULLETPROOF ALIGNMENT */}
+                     {renderWarehouseColumns(false, item)}
+                  </div>
+                </React.Fragment>
+              );
+            })}
+          </div>
         </div>
       </div>
 
@@ -282,7 +604,7 @@ export function PivotTable() {
           <div className="flex items-center gap-4">
             <span>Total Items: <strong>{pivotedData.length}</strong></span>
             <span>Regions: <strong>{regions.length}</strong></span>
-            <span>Warehouses: <strong>{wmCodes.length}</strong></span>
+            <span>Warehouses: <strong>{warehouseNames.length}</strong></span>
           </div>
         </div>
       </div>

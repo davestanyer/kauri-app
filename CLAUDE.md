@@ -79,3 +79,115 @@ The application manages wine barrel and bottle inventory with:
 - All numeric data uses monospace fonts for readability
 - Professional utility classes (text-slate-600, bg-logo-green, badge-sophisticated, badge-available, badge-category-barrels, etc.)
 - Clean, professional styling focused on usability and data clarity
+
+## Critical Pattern: Bulletproof Table Column Alignment
+
+### Problem Pattern
+When building complex tables with dynamic column widths and region spanning headers, misalignment issues occur when:
+1. Header text length exceeds calculated column width (e.g., "CONOTHER" too long for warehouse columns)
+2. Different sections (header, group rows, data rows) use different width calculations
+3. CSS flexbox containers expand inconsistently causing visual gaps and extra borders
+
+### Solution: Single Source of Truth Pattern
+**ALWAYS use this pattern for complex table layouts:**
+
+```typescript
+// 1. Create immutable layout calculation function
+const getColumnLayout = () => {
+  // Fixed column widths - NEVER CHANGE THESE
+  const FIXED_COLUMNS = {
+    itemId: 140,
+    description: 300, 
+    group: 140
+  };
+  
+  // Summary column widths - NEVER CHANGE THESE
+  const SUMMARY_COLUMNS = {
+    total: 320,
+    individual: 80
+  };
+
+  // Calculate warehouse region layouts with IMMUTABLE logic
+  const warehouseRegions = Object.entries(groupedByRegion).map(([region, warehouses]) => {
+    // IMMUTABLE: Region width calculation
+    const regionTextWidth = region.length * 8;
+    const minWarehouseWidth = warehouses.length * warehouseColumnWidth;
+    const regionTotalWidth = Math.max(regionTextWidth, minWarehouseWidth);
+    
+    // IMMUTABLE: Each warehouse gets EXACTLY the same width
+    const warehouseWidth = regionTotalWidth / warehouses.length;
+
+    return {
+      region,
+      totalWidth: regionTotalWidth,
+      warehouses: warehouses.map(warehouse => ({
+        name: warehouse,
+        width: warehouseWidth // EXACTLY the same for all warehouses in this region
+      }))
+    };
+  });
+
+  return {
+    fixedColumns: FIXED_COLUMNS,
+    summaryColumns: SUMMARY_COLUMNS,
+    warehouseRegions
+  };
+};
+
+// 2. Create shared rendering function for perfect alignment
+const renderWarehouseColumns = (isHeader: boolean = false, item?: any) => {
+  return columnLayout.warehouseRegions.map(({ region, totalWidth, warehouses }) => (
+    <div key={region} className="flex flex-col border-r border-gray-200 flex-shrink-0">
+      {isHeader && (
+        <div 
+          className="px-2 py-2 text-sm font-semibold text-center border-b border-gray-300 bg-slate-50" 
+          style={{ 
+            minWidth: `${totalWidth}px`,
+            width: `${totalWidth}px`
+          }}
+        >
+          {region}
+        </div>
+      )}
+      <div 
+        className="flex bg-slate-50" 
+        style={{ 
+          minWidth: `${totalWidth}px`,
+          width: `${totalWidth}px`
+        }}
+      >
+        {warehouses.map(({ name, width }) => (
+          <div 
+            key={name} 
+            className="px-1 py-2 text-xs text-center border-r border-gray-100 whitespace-normal break-words" 
+            style={{ 
+              minWidth: `${width}px`, 
+              width: `${width}px`
+            }}
+          >
+            {/* Content rendering logic */}
+          </div>
+        ))}
+      </div>
+    </div>
+  ));
+};
+
+// 3. Use EXACTLY the same layout object throughout ALL sections
+// Header: {renderWarehouseColumns(true)}
+// Group rows: {renderWarehouseColumns(false)}
+// Data rows: {renderWarehouseColumns(false, item)}
+```
+
+### Key Principles
+1. **Single Source of Truth**: One layout calculation function used everywhere
+2. **Immutable Widths**: Calculate once, never modify, use consistently
+3. **Shared Rendering**: Same function renders header, group rows, and data rows
+4. **Text Overflow Handling**: Use `whitespace-normal break-words` for proper wrapping
+5. **Perfect Width Sync**: Every section uses identical `style={{ width: 'Xpx', minWidth: 'Xpx' }}`
+
+### Why This Matters
+- Prevents "CONOTHER" type issues where long text creates layout gaps
+- Eliminates mysterious extra vertical lines and border misalignment
+- Ensures perfect column alignment across all table sections
+- Makes layout changes bulletproof and maintainable

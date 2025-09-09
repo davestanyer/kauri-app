@@ -41,18 +41,18 @@ export function AvailabilityDashboard() {
 
   // Key metrics for sales reps
   const totalItems = getUniqueValues(data, 'ITEMID').length;
-  const totalQuantity = data.reduce((sum, row) => sum + row.QTY, 0);
-  const totalValue = data.reduce((sum, row) => sum + (row.Amount || 0), 0);
+  const totalQuantity = data.reduce((sum, row) => sum + row.QtyOnHand, 0);
+  const totalValue = data.reduce((sum, row) => sum + (row.AmountOnHand || 0), 0);
   const totalRegions = getUniqueValues(data, 'WHRegion').length;
   const totalWarehouses = getUniqueValues(data, 'wmcode').length;
   
   // Items with stock
-  const itemsWithStock = data.filter(row => row.QTY > 0);
+  const itemsWithStock = data.filter(row => row.QtyOnHand > 0);
   const availableItems = getUniqueValues(itemsWithStock, 'ITEMID').length;
   
   // Low stock warnings (items with less than 50 units)
-  const lowStockItems = data.filter(row => row.QTY > 0 && row.QTY <= 50);
-  const criticalStockItems = data.filter(row => row.QTY > 0 && row.QTY <= 10);
+  const lowStockItems = data.filter(row => row.QtyOnHand > 0 && row.QtyOnHand <= 50);
+  const criticalStockItems = data.filter(row => row.QtyOnHand > 0 && row.QtyOnHand <= 10);
   
 
   return (

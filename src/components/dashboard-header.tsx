@@ -1,19 +1,15 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import Link from "next/link";
-import { usePathname } from "next/navigation";
 import { UserButton, useUser } from "@clerk/nextjs";
 import { 
   Search, 
   Bell, 
   Settings,
-  BarChart3,
   Package
 } from "lucide-react";
 
 export function DashboardHeader() {
-  const pathname = usePathname();
   const { user } = useUser();
   
   return (
@@ -34,21 +30,6 @@ export function DashboardHeader() {
                   Inventory Management
                 </p>
               </div>
-            </div>
-            
-            <div className="hidden md:flex items-center space-x-1">
-              <Link href="/">
-                <Button variant="ghost" size="sm" className={`text-gray-600 hover:text-gray-900 hover:bg-gray-100 px-3 py-2 text-sm ${pathname === '/' ? 'bg-gray-50 text-gray-900' : ''}`}>
-                  <BarChart3 className="w-4 h-4 mr-2" />
-                  Dashboard
-                </Button>
-              </Link>
-              <Link href="/inventory">
-                <Button variant="ghost" size="sm" className={`text-gray-600 hover:text-gray-900 hover:bg-gray-100 px-3 py-2 text-sm ${pathname === '/inventory' ? 'bg-gray-50 text-gray-900' : ''}`}>
-                  <Package className="w-4 h-4 mr-2" />
-                  Inventory
-                </Button>
-              </Link>
             </div>
           </div>
 

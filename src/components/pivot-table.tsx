@@ -4,7 +4,6 @@ import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { CustomTooltip } from "@/components/ui/custom-tooltip";
 import { parseCSV, pivotData, getUniqueValues, getUniqueWarehouseNames, getUniqueCompanies, type InventoryRow, type PivotedItem } from "@/lib/csv-parser";
 import { exportToExcel } from "@/lib/export-utils";
 import { Search, Download } from "lucide-react";
@@ -39,9 +38,6 @@ export function PivotTable() {
   const [searchText, setSearchText] = useState<string>("");
   const [visibleColumns, setVisibleColumns] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(true);
-  const [containerWidth, setContainerWidth] = useState<number>(0);
-  const [headerScrollRef, setHeaderScrollRef] = useState<HTMLDivElement | null>(null);
-  const [bodyScrollRef, setBodyScrollRef] = useState<HTMLDivElement | null>(null);
 
   useEffect(() => {
     const loadData = async () => {
@@ -99,7 +95,7 @@ export function PivotTable() {
     };
 
     loadData();
-  }, []);
+  }, [selectedGroup]);
 
   // Update data when company filter changes
   useEffect(() => {
@@ -119,40 +115,7 @@ export function PivotTable() {
     }
   }, [selectedCompany, data, companies]);
 
-  // Track container width for responsive column sizing
-  useEffect(() => {
-    const updateWidth = () => {
-      const container = document.querySelector('.pivot-table-container');
-      if (container) {
-        setContainerWidth(container.clientWidth);
-      }
-    };
 
-    updateWidth();
-    window.addEventListener('resize', updateWidth);
-    return () => window.removeEventListener('resize', updateWidth);
-  }, []);
-
-  // Sync scroll between header and body
-  useEffect(() => {
-    if (!headerScrollRef || !bodyScrollRef) return;
-
-    const handleHeaderScroll = () => {
-      bodyScrollRef.scrollLeft = headerScrollRef.scrollLeft;
-    };
-
-    const handleBodyScroll = () => {
-      headerScrollRef.scrollLeft = bodyScrollRef.scrollLeft;
-    };
-
-    headerScrollRef.addEventListener('scroll', handleHeaderScroll);
-    bodyScrollRef.addEventListener('scroll', handleBodyScroll);
-
-    return () => {
-      headerScrollRef.removeEventListener('scroll', handleHeaderScroll);
-      bodyScrollRef.removeEventListener('scroll', handleBodyScroll);
-    };
-  }, [headerScrollRef, bodyScrollRef]);
 
   const filteredData = pivotedData
     .filter(item => {
@@ -185,34 +148,6 @@ export function PivotTable() {
   
   const visibleWarehouseNames = warehouseNames.filter(name => visibleColumns[name]);
 
-  // Calculate optimal column widths based on available space
-  const getOptimalColumnWidth = () => {
-    if (containerWidth === 0) return 90; // Default width
-    
-    const fixedColumnsWidth = 580; // Item ID (140) + Description (300) + Group (140)
-    const summaryColumnsWidth = 320; // 4 columns × 80px
-    const availableWidth = containerWidth - fixedColumnsWidth - summaryColumnsWidth - 50; // 50px for margins/scrollbar
-    const totalWarehouseColumns = visibleWarehouseNames.length;
-    
-    if (totalWarehouseColumns === 0) return 90;
-    
-    const optimalWidth = Math.max(90, Math.min(140, Math.floor(availableWidth / totalWarehouseColumns)));
-    return optimalWidth;
-  };
-
-  const warehouseColumnWidth = getOptimalColumnWidth();
-
-  // Fixed column widths for consistent layout
-  const FIXED_COLUMNS = {
-    itemId: 140,
-    description: 300
-  };
-  
-  // Summary column widths
-  const SUMMARY_COLUMNS = {
-    total: 320,
-    individual: 80
-  };
 
   const groupedByRegion = regions.reduce((acc, region) => {
     const regionWarehouses = visibleWarehouseNames.filter(name => 
@@ -224,111 +159,6 @@ export function PivotTable() {
     return acc;
   }, {} as Record<string, string[]>);
 
-  const renderWarehouseColumns = (isHeader: boolean = false, item?: PivotedItem) => {
-    return regions.map((region) => {
-      const regionWarehouses = warehouseNames.filter(whName => 
-        data.some(row => row.WHName === whName && row.WHRegion === region)
-      );
-      
-      return (
-        <div key={region} className="flex flex-col border-r border-gray-200 flex-shrink-0">
-          {isHeader && (
-            <div className="px-3 py-3 text-sm font-semibold text-center border-b border-gray-300 bg-slate-50 min-w-[100px]">
-              {region}
-            </div>
-          )}
-          <div className="flex bg-slate-50 min-w-[100px]">
-            <div className="px-3 py-3 text-xs text-center border-r border-gray-100 whitespace-normal break-words w-full">
-              {isHeader ? 'Qty On Hand' : (
-                item ? (() => {
-                  // Calculate regional totals from actual data
-                  const regionOnHand = regionWarehouses.reduce((sum, whName) => {
-                    return sum + (item.quantities[whName] || 0);
-                  }, 0);
-                  
-                  const regionAvailable = regionWarehouses.reduce((sum, whName) => {
-                    const onHand = item.quantities[whName] || 0;
-                    const onSO = item.quantitiesOnSO?.[whName] || 0;
-                    return sum + Math.max(0, onHand - onSO);
-                  }, 0);
-                  
-                  // Color coding based on GLOBAL availability status
-                  let colorClass = 'text-gray-400';
-                  if (regionOnHand > 0) {
-                    // Use global item availability for color coding, not regional
-                    const globalOnHand = item.totalQty || 0;
-                    const globalAvailable = item.qtyAvailable || 0;
-                    
-                    if (globalAvailable <= 0) {
-                      colorClass = 'text-red-600 bg-red-50 font-medium'; // Red: Global shortage/oversold
-                    } else if (globalAvailable >= globalOnHand) {
-                      colorClass = 'text-green-600 bg-green-50 font-medium'; // Green: Fully available globally
-                    } else {
-                      const globalAvailabilityRatio = globalAvailable / globalOnHand;
-                      if (globalAvailabilityRatio >= 0.7) {
-                        colorClass = 'text-blue-600 bg-blue-50 font-medium'; // Blue: 70%+ available globally
-                      } else if (globalAvailabilityRatio >= 0.3) {
-                        colorClass = 'text-orange-600 bg-orange-50 font-medium'; // Orange: 30-70% available globally
-                      } else {
-                        colorClass = 'text-red-600 bg-red-50 font-medium'; // Red: <30% available globally
-                      }
-                    }
-                  }
-                  
-                  return regionOnHand > 0 ? (
-                    <CustomTooltip
-                      content={
-                        <div>
-                          <div className="font-semibold mb-2 text-yellow-300">{region} Region</div>
-                          <div className="mb-2 border-b border-gray-600 pb-2">
-                            <div className="text-blue-300">Regional On Hand: <span className="text-white">{regionOnHand.toLocaleString()}</span></div>
-                            <div className="text-green-300">Regional Available: <span className="text-white">{regionAvailable.toLocaleString()}</span></div>
-                          </div>
-                          <div className="mb-2">
-                            <div className="text-xs text-gray-400 mb-1">Global Status:</div>
-                            <div className="text-blue-300">Total On Hand: <span className="text-white">{(item.totalQty || 0).toLocaleString()}</span></div>
-                            <div className="text-green-300">Total Available: <span className="text-white">{(item.qtyAvailable || 0).toLocaleString()}</span></div>
-                            <div className="text-purple-300">Total Committed: <span className="text-white">{((item.totalQty || 0) - (item.qtyAvailable || 0)).toLocaleString()}</span></div>
-                          </div>
-                          {regionWarehouses.length > 0 && (
-                            <div>
-                              <div className="font-medium mb-1 text-blue-300">Warehouse Breakdown:</div>
-                              <div className="space-y-1">
-                                {regionWarehouses.map((whName) => {
-                                  const onHand = item.quantities[whName] || 0;
-                                  const onSO = item.quantitiesOnSO?.[whName] || 0;
-                                  const available = Math.max(0, onHand - onSO);
-                                  return onHand > 0 ? (
-                                    <div key={whName} className="text-xs">
-                                      <div className="text-gray-300">{whName}:</div>
-                                      <div className="ml-2">
-                                        <span className="text-blue-200">On Hand: {onHand.toLocaleString()}</span><br/>
-                                        <span className="text-green-200">Available: {available.toLocaleString()}</span>
-                                      </div>
-                                    </div>
-                                  ) : null;
-                                })}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      }
-                    >
-                      <span className={`hover:opacity-80 px-1 py-0.5 rounded inline-block cursor-pointer ${colorClass}`}>
-                        {regionOnHand.toLocaleString()}
-                      </span>
-                    </CustomTooltip>
-                  ) : (
-                    <span className="text-gray-400">-</span>
-                  );
-                })() : '-'
-              )}
-            </div>
-          </div>
-        </div>
-      );
-    });
-  };
 
   const handleExport = () => {
     exportToExcel(
@@ -449,9 +279,6 @@ export function PivotTable() {
                 Summary
               </th>
               {activeRegions.map((region) => {
-                const regionWarehouses = warehouseNames.filter(whName => 
-                  data.some(row => row.WHName === whName && row.WHRegion === region)
-                );
                 return (
                   <th key={region} rowSpan={2} className="border border-gray-300 px-2 py-2 text-center font-semibold text-gray-700" style={{ backgroundColor: '#F8FAFC' }}>
                     {region}<br/>

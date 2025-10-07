@@ -365,7 +365,6 @@ export function BarrelAvailability() {
                         <td className="border-r border-b border-gray-200 px-2 py-1 text-center">
                           {(() => {
                             let price = "";
-                            let currency = item.CURRENCY || "";
                             
                             if (selectedCompany === "Kauri Australia (a Limited Partnership)") {
                               price = item.STANDARDPRICETOCUSTOMERAUS || "";

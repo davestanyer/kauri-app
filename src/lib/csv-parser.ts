@@ -2,32 +2,18 @@ export interface InventoryRow {
   GRP: string;
   ITEMID: string;
   ITEMDESC: string;
-  wmcode: string;
+  WHCode: string;
+  WHName: string;
+  WHRegion: string;
   Desc3: string;
-  LotID: string;
-  BestBefore: string;
-  OldDesc: string;
   ItemOrder1: number;
   ItemOrder2: number;
-  WH_ID: number;
   ClipBd: string;
-  WH_Name: string;
-  WHRegion: string;
-  UCat: string;
-  IGroup: number;
+  Company: string;
   QtyOnHand: number;
   QtyOnPO: number;
   QtyOnSO: number;
-  NetAvailable: number;
-  ArrivalDT: string;
-  TotalWeightOnHand: number;
-  TotalWeightOnPO: number;
-  TotalWeightOnSO: number;
-  AverageCost: number;
-  AmountOnHand: number;
-  first_date: string;
-  latest_date: string;
-  Company: string;
+  QtyAvailable: number;
 }
 
 export interface LotDetail {
@@ -67,10 +53,8 @@ export function parseCSV(csvContent: string): InventoryRow[] {
     headers.forEach((header, index) => {
       const value = values[index]?.trim() || '';
       const numericFields = [
-        'ItemOrder1', 'ItemOrder2', 'WH_ID', 'IGroup', 
-        'QtyOnHand', 'QtyOnPO', 'QtyOnSO', 'NetAvailable',
-        'TotalWeightOnHand', 'TotalWeightOnPO', 'TotalWeightOnSO', 
-        'AverageCost', 'AmountOnHand'
+        'ItemOrder1', 'ItemOrder2', 
+        'QtyOnHand', 'QtyOnPO', 'QtyOnSO', 'QtyAvailable'
       ];
       
       if (numericFields.includes(header)) {
@@ -138,7 +122,7 @@ export function pivotData(data: InventoryRow[]): PivotedItem[] {
     }
     
     const item = grouped.get(key)!;
-    const whName = row.WH_Name || row.wmcode; // Use WH_Name if available, fallback to wmcode
+    const whName = row.WHName || row.WHCode; // Use WHName if available, fallback to WHCode
     
     // Add quantity on hand by warehouse name
     if (!item.quantities[whName]) {
@@ -158,18 +142,18 @@ export function pivotData(data: InventoryRow[]): PivotedItem[] {
     }
     item.quantitiesOnSO[whName] += row.QtyOnSO;
     
-    // Add lot details for tooltips
+    // Add lot details for tooltips (simplified for new structure)
     if (!item.lotDetails[whName]) {
       item.lotDetails[whName] = [];
     }
     
-    if (row.LotID && row.QtyOnHand > 0) {
+    if (row.QtyOnHand > 0) {
       item.lotDetails[whName].push({
-        lotId: row.LotID,
+        lotId: `${row.ITEMID}-${whName}`,
         qty: row.QtyOnHand,
-        firstDate: row.first_date,
-        latestDate: row.latest_date,
-        cost: row.AverageCost || 0
+        firstDate: '',
+        latestDate: '',
+        cost: 0
       });
     }
     
@@ -186,17 +170,12 @@ export function pivotData(data: InventoryRow[]): PivotedItem[] {
     item.totalQty += row.QtyOnHand;
     item.totalQtyOnPO += row.QtyOnPO;
     item.totalQtyOnSO += row.QtyOnSO;
-    item.totalValue += row.AmountOnHand || 0;
+    item.qtyAvailable += row.QtyAvailable; // Use provided QtyAvailable directly
+    item.totalValue += 0; // No cost data available in new structure
   });
   
-  // Calculate available quantity for each item
-  // Note: QtyOnSO is already negative in the data, so we add it
-  const items = Array.from(grouped.values());
-  items.forEach(item => {
-    item.qtyAvailable = item.totalQty + item.totalQtyOnPO + item.totalQtyOnSO;
-  });
-  
-  return items;
+  // Return the items (QtyAvailable is already calculated above)
+  return Array.from(grouped.values());
 }
 
 export function getUniqueValues(data: InventoryRow[], field: keyof InventoryRow): string[] {
@@ -204,18 +183,18 @@ export function getUniqueValues(data: InventoryRow[], field: keyof InventoryRow)
 }
 
 export function getUniqueWmCodes(data: InventoryRow[]): string[] {
-  return getUniqueValues(data, 'wmcode');
+  return getUniqueValues(data, 'WHCode');
 }
 
 export function getUniqueWarehouseNames(data: InventoryRow[]): string[] {
-  return getUniqueValues(data, 'WH_Name');
+  return getUniqueValues(data, 'WHName');
 }
 
 export function getWarehouseMapping(data: InventoryRow[]): Map<string, string> {
   const mapping = new Map<string, string>();
   data.forEach(row => {
-    if (row.wmcode && row.WH_Name) {
-      mapping.set(row.wmcode, row.WH_Name);
+    if (row.WHCode && row.WHName) {
+      mapping.set(row.WHCode, row.WHName);
     }
   });
   return mapping;

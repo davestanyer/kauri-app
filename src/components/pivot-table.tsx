@@ -1,11 +1,9 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { ColumnVisibility } from "@/components/column-visibility";
 import { CustomTooltip } from "@/components/ui/custom-tooltip";
 import { parseCSV, pivotData, getUniqueValues, getUniqueWarehouseNames, getUniqueCompanies, type InventoryRow, type PivotedItem } from "@/lib/csv-parser";
 import { exportToExcel } from "@/lib/export-utils";
@@ -36,7 +34,7 @@ export function PivotTable() {
   const [regions, setRegions] = useState<string[]>([]);
   const [groups, setGroups] = useState<string[]>([]);
   const [companies, setCompanies] = useState<string[]>([]);
-  const [selectedGroup, setSelectedGroup] = useState<string>("all");
+  const [selectedGroup, setSelectedGroup] = useState<string>("Wine Barrels");
   const [selectedCompany, setSelectedCompany] = useState<string>("");
   const [searchText, setSearchText] = useState<string>("");
   const [visibleColumns, setVisibleColumns] = useState<Record<string, boolean>>({});
@@ -48,7 +46,7 @@ export function PivotTable() {
   useEffect(() => {
     const loadData = async () => {
       try {
-        const response = await fetch('/Availability.csv');
+        const response = await fetch('/Available2.csv');
         const csvContent = await response.text();
         const parsed = parseCSV(csvContent);
         
@@ -63,8 +61,12 @@ export function PivotTable() {
         let filteredData = parsed; // Default to all data
         
         if (availableCompanies.length > 0) {
-          // Use KALP if available, otherwise use first available company
-          const initialCompany = availableCompanies.includes("KALP") ? "KALP" : availableCompanies[0];
+          // Use "Kauri Australia (a Limited Partnership)" as default if available, otherwise use first available company
+          const initialCompany = availableCompanies.includes("Kauri Australia (a Limited Partnership)") 
+            ? "Kauri Australia (a Limited Partnership)" 
+            : availableCompanies.includes("KALP") 
+              ? "KALP" 
+              : availableCompanies[0];
           setSelectedCompany(initialCompany);
           filteredData = parsed.filter(row => row.Company === initialCompany);
         } else {
@@ -75,7 +77,13 @@ export function PivotTable() {
         setPivotedData(pivotData(filteredData));
         setWarehouseNames(getUniqueWarehouseNames(filteredData));
         setRegions(getUniqueValues(filteredData, 'WHRegion'));
-        setGroups(getUniqueValues(filteredData, 'GRP'));
+        const availableGroups = getUniqueValues(filteredData, 'GRP');
+        setGroups(availableGroups);
+        
+        // Set default group to first available group if current selection doesn't exist
+        if (availableGroups.length > 0 && !availableGroups.includes(selectedGroup)) {
+          setSelectedGroup(availableGroups[0]);
+        }
         
         // Initialize all columns as visible
         const initialVisibility = getUniqueWarehouseNames(filteredData).reduce((acc, name) => {
@@ -148,18 +156,32 @@ export function PivotTable() {
 
   const filteredData = pivotedData
     .filter(item => {
-      if (selectedGroup !== "all" && item.group !== selectedGroup) return false;
+      // Always filter by selected group (no "all" option)
+      if (item.group !== selectedGroup) return false;
       if (searchText && !item.itemId.toLowerCase().includes(searchText.toLowerCase()) && 
           !item.itemDesc.toLowerCase().includes(searchText.toLowerCase())) return false;
       return true;
     })
     .sort((a, b) => {
-      // Sort by group first, then by itemId
-      if (a.group !== b.group) {
-        return a.group.localeCompare(b.group);
-      }
+      // Sort by itemId since we're only showing one group
       return a.itemId.localeCompare(b.itemId);
     });
+
+  // Filter out regions that have no data across all filtered items
+  const activeRegions = regions.filter(region => {
+    const regionWarehouses = warehouseNames.filter(whName => 
+      data.some(row => row.WHName === whName && row.WHRegion === region)
+    );
+    // Check if this region has any data in the filtered items
+    return filteredData.some(item => 
+      regionWarehouses.some(whName => {
+        const qty = item.quantities[whName] || 0;
+        const onPO = item.quantitiesOnPO?.[whName] || 0;
+        const onSO = item.quantitiesOnSO?.[whName] || 0;
+        return qty > 0 || onPO > 0 || onSO > 0;
+      })
+    );
+  });
   
   const visibleWarehouseNames = warehouseNames.filter(name => visibleColumns[name]);
 
@@ -180,51 +202,21 @@ export function PivotTable() {
 
   const warehouseColumnWidth = getOptimalColumnWidth();
 
-  // BULLETPROOF ALIGNMENT: Single immutable width calculation
-  const getColumnLayout = () => {
-    // Fixed column widths - NEVER CHANGE THESE
-    const FIXED_COLUMNS = {
-      itemId: 140,
-      description: 300, 
-      group: 140
-    };
-    
-    // Summary column widths - NEVER CHANGE THESE
-    const SUMMARY_COLUMNS = {
-      total: 320,
-      individual: 80
-    };
-
-    // Calculate warehouse region layouts with IMMUTABLE logic
-    const warehouseRegions = Object.entries(groupedByRegion).map(([region, warehouses]) => {
-      // IMMUTABLE: Region width calculation
-      const regionTextWidth = region.length * 8;
-      const minWarehouseWidth = warehouses.length * warehouseColumnWidth;
-      const regionTotalWidth = Math.max(regionTextWidth, minWarehouseWidth);
-      
-      // IMMUTABLE: Each warehouse gets EXACTLY the same width
-      const warehouseWidth = regionTotalWidth / warehouses.length;
-
-      return {
-        region,
-        totalWidth: regionTotalWidth,
-        warehouses: warehouses.map(warehouse => ({
-          name: warehouse,
-          width: warehouseWidth // EXACTLY the same for all warehouses in this region
-        }))
-      };
-    });
-
-    return {
-      fixedColumns: FIXED_COLUMNS,
-      summaryColumns: SUMMARY_COLUMNS,
-      warehouseRegions
-    };
+  // Fixed column widths for consistent layout
+  const FIXED_COLUMNS = {
+    itemId: 140,
+    description: 300
+  };
+  
+  // Summary column widths
+  const SUMMARY_COLUMNS = {
+    total: 320,
+    individual: 80
   };
 
   const groupedByRegion = regions.reduce((acc, region) => {
     const regionWarehouses = visibleWarehouseNames.filter(name => 
-      name && name.trim() !== '' && data.some(row => row.WH_Name === name && row.WHRegion === region)
+      name && name.trim() !== '' && data.some(row => row.WHName === name && row.WHRegion === region)
     );
     if (regionWarehouses.length > 0) {
       acc[region] = regionWarehouses;
@@ -232,84 +224,110 @@ export function PivotTable() {
     return acc;
   }, {} as Record<string, string[]>);
 
-  const columnLayout = getColumnLayout();
-
-  // BULLETPROOF: Shared rendering function that ensures identical widths
   const renderWarehouseColumns = (isHeader: boolean = false, item?: PivotedItem) => {
-    return columnLayout.warehouseRegions.map(({ region, totalWidth, warehouses }) => (
-      <div key={region} className="flex flex-col border-r border-gray-200 flex-shrink-0">
-        {isHeader && (
-          <div 
-            className="px-2 py-2 text-sm font-semibold text-center border-b border-gray-300 bg-slate-50" 
-            style={{ 
-              minWidth: `${totalWidth}px`,
-              width: `${totalWidth}px`
-            }}
-          >
-            {region}
-          </div>
-        )}
-        <div 
-          className="flex bg-slate-50" 
-          style={{ 
-            minWidth: `${totalWidth}px`,
-            width: `${totalWidth}px`
-          }}
-        >
-          {warehouses.map(({ name, width }) => (
-            <div 
-              key={name} 
-              className="px-1 py-2 text-xs text-center border-r border-gray-100 whitespace-normal break-words" 
-              style={{ 
-                minWidth: `${width}px`, 
-                width: `${width}px`
-              }}
-            >
-              {isHeader ? name : (
+    return regions.map((region) => {
+      const regionWarehouses = warehouseNames.filter(whName => 
+        data.some(row => row.WHName === whName && row.WHRegion === region)
+      );
+      
+      return (
+        <div key={region} className="flex flex-col border-r border-gray-200 flex-shrink-0">
+          {isHeader && (
+            <div className="px-3 py-3 text-sm font-semibold text-center border-b border-gray-300 bg-slate-50 min-w-[100px]">
+              {region}
+            </div>
+          )}
+          <div className="flex bg-slate-50 min-w-[100px]">
+            <div className="px-3 py-3 text-xs text-center border-r border-gray-100 whitespace-normal break-words w-full">
+              {isHeader ? 'Qty On Hand' : (
                 item ? (() => {
-                  const quantity = item.quantities[name] || 0;
-                  const lots = item.lotDetails[name] || [];
+                  // Calculate regional totals from actual data
+                  const regionOnHand = regionWarehouses.reduce((sum, whName) => {
+                    return sum + (item.quantities[whName] || 0);
+                  }, 0);
                   
-                  return quantity > 0 ? (
-                    lots.length > 0 ? (
-                      <CustomTooltip
-                        content={
-                          <div>
-                            <div className="font-semibold mb-2 text-yellow-300">{name}</div>
-                            <div className="font-medium mb-1 text-blue-300">Lot Details:</div>
-                            <div className="space-y-1">
-                              {lots.map((lot, idx: number) => (
-                                <div key={idx} className="flex justify-between gap-3">
-                                  <span className="text-gray-300">{lot.lotId}:</span>
-                                  <span className="font-medium">{lot.qty.toLocaleString()} units</span>
-                                </div>
-                              ))}
-                            </div>
-                            {lots[0]?.firstDate && (
-                              <div className="mt-2 pt-2 border-t border-gray-700 text-xs text-gray-400">
-                                First: {lots[0].firstDate}
-                              </div>
-                            )}
+                  const regionAvailable = regionWarehouses.reduce((sum, whName) => {
+                    const onHand = item.quantities[whName] || 0;
+                    const onSO = item.quantitiesOnSO?.[whName] || 0;
+                    return sum + Math.max(0, onHand - onSO);
+                  }, 0);
+                  
+                  // Color coding based on GLOBAL availability status
+                  let colorClass = 'text-gray-400';
+                  if (regionOnHand > 0) {
+                    // Use global item availability for color coding, not regional
+                    const globalOnHand = item.totalQty || 0;
+                    const globalAvailable = item.qtyAvailable || 0;
+                    
+                    if (globalAvailable <= 0) {
+                      colorClass = 'text-red-600 bg-red-50 font-medium'; // Red: Global shortage/oversold
+                    } else if (globalAvailable >= globalOnHand) {
+                      colorClass = 'text-green-600 bg-green-50 font-medium'; // Green: Fully available globally
+                    } else {
+                      const globalAvailabilityRatio = globalAvailable / globalOnHand;
+                      if (globalAvailabilityRatio >= 0.7) {
+                        colorClass = 'text-blue-600 bg-blue-50 font-medium'; // Blue: 70%+ available globally
+                      } else if (globalAvailabilityRatio >= 0.3) {
+                        colorClass = 'text-orange-600 bg-orange-50 font-medium'; // Orange: 30-70% available globally
+                      } else {
+                        colorClass = 'text-red-600 bg-red-50 font-medium'; // Red: <30% available globally
+                      }
+                    }
+                  }
+                  
+                  return regionOnHand > 0 ? (
+                    <CustomTooltip
+                      content={
+                        <div>
+                          <div className="font-semibold mb-2 text-yellow-300">{region} Region</div>
+                          <div className="mb-2 border-b border-gray-600 pb-2">
+                            <div className="text-blue-300">Regional On Hand: <span className="text-white">{regionOnHand.toLocaleString()}</span></div>
+                            <div className="text-green-300">Regional Available: <span className="text-white">{regionAvailable.toLocaleString()}</span></div>
                           </div>
-                        }
-                      >
-                        <span className="hover:bg-blue-50 px-1 py-0.5 rounded inline-block">
-                          {quantity.toLocaleString()}
-                        </span>
-                      </CustomTooltip>
-                    ) : (
-                      <span>{quantity.toLocaleString()}</span>
-                    )
+                          <div className="mb-2">
+                            <div className="text-xs text-gray-400 mb-1">Global Status:</div>
+                            <div className="text-blue-300">Total On Hand: <span className="text-white">{(item.totalQty || 0).toLocaleString()}</span></div>
+                            <div className="text-green-300">Total Available: <span className="text-white">{(item.qtyAvailable || 0).toLocaleString()}</span></div>
+                            <div className="text-purple-300">Total Committed: <span className="text-white">{((item.totalQty || 0) - (item.qtyAvailable || 0)).toLocaleString()}</span></div>
+                          </div>
+                          {regionWarehouses.length > 0 && (
+                            <div>
+                              <div className="font-medium mb-1 text-blue-300">Warehouse Breakdown:</div>
+                              <div className="space-y-1">
+                                {regionWarehouses.map((whName) => {
+                                  const onHand = item.quantities[whName] || 0;
+                                  const onSO = item.quantitiesOnSO?.[whName] || 0;
+                                  const available = Math.max(0, onHand - onSO);
+                                  return onHand > 0 ? (
+                                    <div key={whName} className="text-xs">
+                                      <div className="text-gray-300">{whName}:</div>
+                                      <div className="ml-2">
+                                        <span className="text-blue-200">On Hand: {onHand.toLocaleString()}</span><br/>
+                                        <span className="text-green-200">Available: {available.toLocaleString()}</span>
+                                      </div>
+                                    </div>
+                                  ) : null;
+                                })}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      }
+                    >
+                      <span className={`hover:opacity-80 px-1 py-0.5 rounded inline-block cursor-pointer ${colorClass}`}>
+                        {regionOnHand.toLocaleString()}
+                      </span>
+                    </CustomTooltip>
                   ) : (
                     <span className="text-gray-400">-</span>
                   );
                 })() : '-'
               )}
             </div>
-          ))}
+          </div>
         </div>
-      </div>
-    ));
+      );
+    });
   };
 
   const handleExport = () => {
@@ -334,59 +352,51 @@ export function PivotTable() {
     );
   }
 
+  // Get the current group color for header
+  const getGroupColor = (group: string) => {
+    return groupColors[group] || groupColors["Other"];
+  };
+
   return (
     <div className="w-full pivot-table-container max-w-none">
-      {/* Header with Filters */}
+      {/* Filters - moved above title */}
       <div className="bg-white border-b border-gray-200 px-6 py-4">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h3 className="text-lg font-semibold text-gray-900">Inventory Availability by Location</h3>
-            <p className="text-sm text-gray-500 mt-1">{filteredData.length} items • Grouped by region and warehouse</p>
-          </div>
-          <div className="flex items-center gap-3">
-            <ColumnVisibility
-              columns={warehouseNames}
-              visibleColumns={visibleColumns}
-              onToggle={(column) => setVisibleColumns(prev => ({ ...prev, [column]: !prev[column] }))}
-              onToggleAll={(visible) => {
-                const newState = warehouseNames.reduce((acc, name) => {
-                  acc[name] = visible;
-                  return acc;
-                }, {} as Record<string, boolean>);
-                setVisibleColumns(newState);
-              }}
-              onToggleRegion={(region, visible) => {
-                const regionWarehouses = groupedByRegion[region] || [];
-                setVisibleColumns(prev => {
-                  const newState = { ...prev };
-                  regionWarehouses.forEach(warehouse => {
-                    newState[warehouse] = visible;
-                  });
-                  return newState;
-                });
-              }}
-              groupedByRegion={groupedByRegion}
-            />
-            <Button variant="outline" size="sm" onClick={handleExport}>
-              <Download className="w-4 h-4 mr-2" />
-              Export to Excel
-            </Button>
-          </div>
-        </div>
-        
-        {/* Filters */}
         <div className="flex items-center gap-4 flex-wrap">
+          {/* Group Filter - Primary filter */}
+          <div className="flex items-center gap-2">
+            <label className="text-sm font-medium text-gray-700 whitespace-nowrap">Product Group:</label>
+            <Select value={selectedGroup} onValueChange={setSelectedGroup}>
+              <SelectTrigger className="w-48 min-w-[192px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {groups.map(group => (
+                  <SelectItem key={group} value={group}>
+                    <div className="flex items-center gap-2">
+                      <div className={`w-3 h-3 rounded-full ${getGroupColor(group)}`}></div>
+                      {group}
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
           {/* Company Filter - only show if companies are available */}
           {companies.length > 0 && (
             <div className="flex items-center gap-2">
-              <label className="text-sm font-medium text-gray-700">Company:</label>
+              <label className="text-sm font-medium text-gray-700 whitespace-nowrap">Company:</label>
               <Select value={selectedCompany || ""} onValueChange={setSelectedCompany}>
-                <SelectTrigger className="w-32">
+                <SelectTrigger className="w-72 min-w-[288px]">
                   <SelectValue placeholder="Select company" />
                 </SelectTrigger>
                 <SelectContent>
                   {companies.map(company => (
-                    <SelectItem key={company} value={company}>{company}</SelectItem>
+                    <SelectItem key={company} value={company}>
+                      <span className="truncate max-w-[250px]" title={company}>
+                        {company}
+                      </span>
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -400,200 +410,403 @@ export function PivotTable() {
               placeholder="Search items..."
               value={searchText}
               onChange={(e) => setSearchText(e.target.value)}
-              className="pl-10 w-64 text-sm"
+              className="pl-10 w-48 min-w-[192px] text-sm"
             />
           </div>
-          
-          <div className="flex items-center gap-2">
-            <label className="text-sm font-medium text-gray-700">Group:</label>
-            <Select value={selectedGroup} onValueChange={setSelectedGroup}>
-              <SelectTrigger className="w-40">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Groups</SelectItem>
-                {groups.map(group => (
-                  <SelectItem key={group} value={group}>{group}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+        </div>
+      </div>
+
+      {/* Group Header - Prominent display */}
+      <div className={`px-6 py-4 border-b ${getGroupColor(selectedGroup)} border-l-4 border-l-logo-green`}>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <h2 className="text-xl font-bold">{selectedGroup}</h2>
+            <div className="text-sm opacity-80">
+              {filteredData.length} items in this category
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <Button variant="outline" size="sm" onClick={handleExport}>
+              <Download className="w-4 h-4 mr-2" />
+              Export to Excel
+            </Button>
           </div>
         </div>
       </div>
 
       {/* Pivot Table */}
-      <div className="border border-gray-200 rounded-lg overflow-hidden w-full">
-        {/* Scrollable Header - syncs with body */}
-        <div className="bg-slate-50 border-b border-gray-200 sticky top-0 z-20">
-          <div 
-            className="overflow-x-auto"
-            ref={setHeaderScrollRef}
-          >
-            <div className="flex min-w-full">
-            {/* Fixed columns - using single source of truth */}
-            <div className="flex bg-slate-50 border-r border-gray-200 flex-shrink-0">
-              <div className="px-3 py-2 text-sm font-medium border-r border-gray-200" style={{ minWidth: `${columnLayout.fixedColumns.itemId}px`, width: `${columnLayout.fixedColumns.itemId}px` }}>Item ID</div>
-              <div className="px-3 py-2 text-sm font-medium border-r border-gray-200" style={{ minWidth: `${columnLayout.fixedColumns.description}px`, width: `${columnLayout.fixedColumns.description}px` }}>Description</div>
-              <div className="px-3 py-2 text-sm font-medium border-r border-gray-200" style={{ minWidth: `${columnLayout.fixedColumns.group}px`, width: `${columnLayout.fixedColumns.group}px` }}>Group</div>
-            </div>
-            
-             {/* Summary columns - using single source of truth */}
-             <div className="flex flex-col flex-shrink-0 border-r border-gray-300" style={{ minWidth: `${columnLayout.summaryColumns.total}px` }}>
-               <div className="px-2 py-2 text-sm font-semibold text-center border-b border-gray-300 bg-slate-50" style={{ minWidth: `${columnLayout.summaryColumns.total}px` }}>
-                 Summary
-               </div>
-               <div className="flex bg-slate-50">
-                 <div className="px-2 py-2 text-xs font-medium text-center border-r border-gray-200" style={{ minWidth: `${columnLayout.summaryColumns.individual}px`, width: `${columnLayout.summaryColumns.individual}px` }}>Total Qty on Hand</div>
-                 <div className="px-2 py-2 text-xs font-medium text-center border-r border-gray-200" style={{ minWidth: `${columnLayout.summaryColumns.individual}px`, width: `${columnLayout.summaryColumns.individual}px` }}>Qty on PO</div>
-                 <div className="px-2 py-2 text-xs font-medium text-center border-r border-gray-200" style={{ minWidth: `${columnLayout.summaryColumns.individual}px`, width: `${columnLayout.summaryColumns.individual}px` }}>Qty on SO</div>
-                 <div className="px-2 py-2 text-xs font-medium text-center" style={{ minWidth: `${columnLayout.summaryColumns.individual}px`, width: `${columnLayout.summaryColumns.individual}px` }}>Qty Available</div>
-               </div>
-             </div>
-            
-             {/* Warehouse columns - BULLETPROOF ALIGNMENT */}
-             {renderWarehouseColumns(true)}
-            </div>
-          </div>
-        </div>
-
-        {/* Scrollable Body */}
-        <div 
-          className="overflow-x-auto max-h-[60vh]" 
-          style={{scrollbarGutter: 'stable'}}
-          ref={setBodyScrollRef}
-        >
-          <div className="min-w-full">
-            {filteredData.map((item, index) => {
-              const isFirstInGroup = index === 0 || filteredData[index - 1].group !== item.group;
+      <div className="overflow-x-auto border border-gray-300 max-h-[80vh]">
+        <table className="w-full border-collapse" style={{ fontSize: '11px' }}>
+          <thead className="sticky top-0 z-10">
+            <tr className="bg-gray-100">
+              <th rowSpan={2} className="border border-gray-300 px-2 py-2 text-left font-semibold text-gray-700" style={{ width: '140px' }}>
+                Item ID
+              </th>
+              <th rowSpan={2} className="border border-gray-300 px-2 py-2 text-left font-semibold text-gray-700" style={{ width: '300px' }}>
+                Description
+              </th>
+              <th colSpan={4} className="border border-gray-300 px-2 py-2 text-center font-semibold text-gray-700" style={{ backgroundColor: '#F8F9FA' }}>
+                Summary
+              </th>
+              {activeRegions.map((region) => {
+                const regionWarehouses = warehouseNames.filter(whName => 
+                  data.some(row => row.WHName === whName && row.WHRegion === region)
+                );
+                return (
+                  <th key={region} rowSpan={2} className="border border-gray-300 px-2 py-2 text-center font-semibold text-gray-700" style={{ backgroundColor: '#F8FAFC' }}>
+                    {region}<br/>
+                    <span className="text-xs font-normal">Qty Available</span>
+                  </th>
+                );
+              })}
+            </tr>
+            <tr className="bg-gray-100">
+              <th className="border border-gray-300 px-2 py-2 text-center font-semibold text-gray-700" style={{ width: '80px', backgroundColor: '#F0FDF4' }}>
+                Total Qty on Hand
+              </th>
+              <th className="border border-gray-300 px-2 py-2 text-center font-semibold text-gray-700" style={{ width: '80px', backgroundColor: '#E0F2FE' }}>
+                Qty on PO
+              </th>
+              <th className="border border-gray-300 px-2 py-2 text-center font-semibold text-gray-700" style={{ width: '80px', backgroundColor: '#FEF3C7' }}>
+                Qty on SO
+              </th>
+              <th className="border border-gray-300 px-2 py-2 text-center font-semibold text-gray-700" style={{ width: '80px', backgroundColor: '#E0F2FE' }}>
+                Qty Available
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {/* Group items by ClipBd */}
+            {(() => {
+              // Group filtered data by ClipBd
+              const groupedByClipBd = new Map<string, typeof filteredData>();
               
-              return (
-                <React.Fragment key={`${item.itemId}-${index}`}>
-                  {isFirstInGroup && (
-                    <div className={`border-t-2 border-gray-300 flex border-b border-gray-100 ${groupColors[item.group as keyof typeof groupColors] || "bg-gray-100"}`}>
-                      {/* Fixed columns - using single source of truth */}
-                      <div className="flex border-r border-gray-200 flex-shrink-0">
-                        <div className="px-3 py-2 text-sm font-medium border-r border-gray-200" style={{ minWidth: `${columnLayout.fixedColumns.itemId}px`, width: `${columnLayout.fixedColumns.itemId}px` }}>
-                          <span className="font-bold">{item.group}</span>
-                        </div>
-                        <div className="px-3 py-2 text-sm border-r border-gray-200" style={{ minWidth: `${columnLayout.fixedColumns.description}px`, width: `${columnLayout.fixedColumns.description}px` }}>
-                          <span className="text-xs opacity-75">
-                            ({filteredData.filter(i => i.group === item.group).length} items)
-                          </span>
-                        </div>
-                        <div className="px-3 py-2 border-r border-gray-200" style={{ minWidth: `${columnLayout.fixedColumns.group}px`, width: `${columnLayout.fixedColumns.group}px` }}></div>
-                      </div>
-                      
-                      {/* Summary columns - using single source of truth */}
-                      <div className="flex flex-shrink-0 border-r border-gray-300" style={{ minWidth: `${columnLayout.summaryColumns.total}px` }}>
-                        <div className="px-2 py-2 text-sm text-right font-semibold border-r border-gray-200" style={{ minWidth: `${columnLayout.summaryColumns.individual}px`, width: `${columnLayout.summaryColumns.individual}px` }}></div>
-                        <div className="px-2 py-2 text-sm text-right border-r border-gray-200" style={{ minWidth: `${columnLayout.summaryColumns.individual}px`, width: `${columnLayout.summaryColumns.individual}px` }}></div>
-                        <div className="px-2 py-2 text-sm text-right border-r border-gray-200" style={{ minWidth: `${columnLayout.summaryColumns.individual}px`, width: `${columnLayout.summaryColumns.individual}px` }}></div>
-                        <div className="px-2 py-2 text-sm text-right font-semibold" style={{ minWidth: `${columnLayout.summaryColumns.individual}px`, width: `${columnLayout.summaryColumns.individual}px` }}></div>
-                      </div>
-                      
-                      {/* Warehouse columns - BULLETPROOF ALIGNMENT */}
-                      {renderWarehouseColumns(false)}
-                    </div>
-                  )}
+              filteredData.forEach(item => {
+                // Get ClipBd from first matching data row
+                const clipBd = data.find(row => row.ITEMID === item.itemId)?.ClipBd || 'Other';
+                if (!groupedByClipBd.has(clipBd)) {
+                  groupedByClipBd.set(clipBd, []);
+                }
+                groupedByClipBd.get(clipBd)!.push(item);
+              });
+
+              // Sort groups by ClipBd name
+              const sortedGroups = Array.from(groupedByClipBd.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+
+              return sortedGroups.map(([clipBd, items]) => [
+                // ClipBd header row
+                <tr key={`clipbd-${clipBd}`} style={{ backgroundColor: '#FED7AA' }}>
+                  <td colSpan={2 + 4 + activeRegions.length} className="border border-gray-300 px-3 py-1 font-bold">
+                    {clipBd}
+                  </td>
+                </tr>,
+                // Items in this ClipBd group
+                ...items.map((item, index) => {
+                  const globalOnHand = item.totalQty || 0;
+                  const globalAvailable = item.qtyAvailable || 0;
                   
-                  <div className="flex hover:bg-gray-50 border-b border-gray-100 min-w-full">
-                    {/* Fixed columns - using single source of truth */}
-                    <div className="flex bg-white border-r border-gray-200 flex-shrink-0">
-                      <div className="px-3 py-2 text-sm font-medium border-r border-gray-200" style={{ minWidth: `${columnLayout.fixedColumns.itemId}px`, width: `${columnLayout.fixedColumns.itemId}px` }}>
+                  // Global color coding logic for consistency
+                  const getAvailabilityColorClass = () => {
+                    if (globalOnHand === 0) return 'text-gray-400';
+                    
+                    if (globalAvailable <= 0) {
+                      return 'text-red-600 bg-red-50 font-medium';
+                    } else if (globalAvailable >= globalOnHand) {
+                      return 'text-green-600 bg-green-50 font-medium';
+                    } else {
+                      const ratio = globalAvailable / globalOnHand;
+                      if (ratio >= 0.7) {
+                        return 'text-blue-600 bg-blue-50 font-medium';
+                      } else if (ratio >= 0.3) {
+                        return 'text-orange-600 bg-orange-50 font-medium';
+                      } else {
+                        return 'text-red-600 bg-red-50 font-medium';
+                      }
+                    }
+                  };
+
+                  return (
+                    <tr key={`${clipBd}-${item.itemId}-${index}`} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                      {/* Item ID */}
+                      <td className="border-l border-r border-b border-gray-200 px-2 py-1">
                         {item.itemId}
-                      </div>
-                      <div className="px-3 py-2 text-sm border-r border-gray-200" style={{ minWidth: `${columnLayout.fixedColumns.description}px`, width: `${columnLayout.fixedColumns.description}px` }}>
+                      </td>
+                      
+                      {/* Description */}
+                      <td className="border-r border-b border-gray-200 px-2 py-1">
                         <div className="truncate" title={item.itemDesc}>
                           {item.itemDesc}
                         </div>
-                      </div>
-                      <div className="px-3 py-2 border-r border-gray-200" style={{ minWidth: `${columnLayout.fixedColumns.group}px`, width: `${columnLayout.fixedColumns.group}px` }}>
-                        <Badge className={`text-xs px-2 py-1 rounded-md font-medium border ${groupColors[item.group as keyof typeof groupColors] || "bg-gray-100 text-gray-800 border-gray-200"}`}>
-                          {item.group}
-                        </Badge>
-                      </div>
-                    </div>
-                    
-                    {/* Summary columns - using single source of truth */}
-                    <div className="flex flex-shrink-0 border-r border-gray-300" style={{ minWidth: `${columnLayout.summaryColumns.total}px` }}>
-                      <div className="px-2 py-2 text-sm text-right font-semibold border-r border-gray-200" style={{ minWidth: `${columnLayout.summaryColumns.individual}px`, width: `${columnLayout.summaryColumns.individual}px` }}>{item.totalQty.toLocaleString()}</div>
-                      <div className="px-2 py-2 text-sm text-right border-r border-gray-200" style={{ minWidth: `${columnLayout.summaryColumns.individual}px`, width: `${columnLayout.summaryColumns.individual}px` }}>
-                        {item.totalQtyOnPO !== 0 ? (
-                          <CustomTooltip
-                            content={
-                              <div>
-                                <div className="font-semibold mb-2 text-yellow-300">Purchase Orders by Warehouse</div>
-                                <div className="space-y-1">
-                                  {Object.entries(item.quantitiesOnPO || {})
-                                    .filter(([, qty]) => qty !== 0)
-                                    .map(([warehouse, qty]) => (
-                                      <div key={warehouse} className="flex justify-between gap-3">
-                                        <span className="text-gray-300">{warehouse}:</span>
-                                        <span className="font-medium">{qty.toLocaleString()}</span>
-                                      </div>
-                                    ))}
-                                </div>
-                                <div className="mt-2 pt-2 border-t border-gray-700 text-xs">
-                                  <div className="flex justify-between">
-                                    <span className="text-gray-400">Total:</span>
-                                    <span className="font-bold text-green-300">{item.totalQtyOnPO.toLocaleString()}</span>
-                                  </div>
-                                </div>
+                      </td>
+                      
+                      {/* Total Qty on Hand with tooltip */}
+                      <td className="border-r border-b border-gray-200 px-1 py-1 text-center">
+                        {item.totalQty > 0 ? (
+                          <div className="relative group">
+                            <span className={`px-2 py-1 rounded cursor-pointer hover:opacity-80 ${item.totalQty > 0 ? 'bg-green-50 text-green-700' : 'text-gray-400'}`}>
+                              {item.totalQty.toLocaleString()}
+                            </span>
+                            <div className="absolute right-0 top-6 w-80 bg-gray-900 text-white text-xs rounded-lg p-3 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+                              <div className="font-semibold mb-2 text-yellow-300">Total Qty on Hand Breakdown</div>
+                              <div className="mb-2 border-b border-gray-700 pb-2">
+                                <div className="text-blue-300">Total On Hand: <span className="text-white font-bold">{item.totalQty.toLocaleString()}</span></div>
                               </div>
-                            }
-                          >
-                            <span className="hover:bg-green-50 px-1 py-0.5 rounded inline-block cursor-help">
+                              <div className="font-medium mb-1 text-blue-300">Warehouse Breakdown:</div>
+                              <div className="space-y-1">
+                                {Object.entries(item.quantities || {})
+                                  .filter(([, qty]) => qty > 0)
+                                  .map(([warehouse, qty]) => (
+                                    <div key={warehouse} className="flex justify-between gap-3">
+                                      <span className="text-gray-300">{warehouse}:</span>
+                                      <span className="text-white">{qty.toLocaleString()}</span>
+                                    </div>
+                                  ))}
+                              </div>
+                            </div>
+                          </div>
+                        ) : (
+                          <span className="text-gray-400">-</span>
+                        )}
+                      </td>
+                      
+                      {/* Qty on PO with detailed tooltip */}
+                      <td className="border-r border-b border-gray-200 px-1 py-1 text-center">
+                        {item.totalQtyOnPO > 0 ? (
+                          <div className="relative group">
+                            <span className="px-2 py-1 rounded cursor-pointer hover:opacity-80 bg-blue-50 text-blue-700">
                               {item.totalQtyOnPO.toLocaleString()}
                             </span>
-                          </CustomTooltip>
+                            <div className="absolute right-0 top-6 w-80 bg-gray-900 text-white text-xs rounded-lg p-3 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+                              <div className="font-semibold mb-2 text-yellow-300">Qty on PO Breakdown</div>
+                              <div className="mb-2 border-b border-gray-700 pb-2">
+                                <div className="text-green-300">Total On PO: <span className="text-white font-bold">+{item.totalQtyOnPO.toLocaleString()}</span></div>
+                              </div>
+                              <div className="font-medium mb-1 text-blue-300">Warehouse Breakdown:</div>
+                              <div className="space-y-1">
+                                {Object.entries(item.quantitiesOnPO || {})
+                                  .filter(([, qty]) => qty > 0)
+                                  .map(([warehouse, qty]) => (
+                                    <div key={warehouse} className="flex justify-between gap-3">
+                                      <span className="text-gray-300">{warehouse}:</span>
+                                      <span className="text-green-100">+{qty.toLocaleString()}</span>
+                                    </div>
+                                  ))}
+                              </div>
+                            </div>
+                          </div>
                         ) : (
-                          <span>{item.totalQtyOnPO.toLocaleString()}</span>
+                          <span className="text-gray-400">-</span>
                         )}
-                      </div>
-                      <div className="px-2 py-2 text-sm text-right border-r border-gray-200" style={{ minWidth: `${columnLayout.summaryColumns.individual}px`, width: `${columnLayout.summaryColumns.individual}px` }}>
-                        {item.totalQtyOnSO !== 0 ? (
-                          <CustomTooltip
-                            content={
-                              <div>
-                                <div className="font-semibold mb-2 text-yellow-300">Sales Orders by Warehouse</div>
-                                <div className="space-y-1">
-                                  {Object.entries(item.quantitiesOnSO || {})
-                                    .filter(([, qty]) => qty !== 0)
-                                    .map(([warehouse, qty]) => (
-                                      <div key={warehouse} className="flex justify-between gap-3">
-                                        <span className="text-gray-300">{warehouse}:</span>
-                                        <span className="font-medium">{qty.toLocaleString()}</span>
+                      </td>
+                      
+                      {/* Qty on SO with detailed tooltip */}
+                      <td className="border-r border-b border-gray-200 px-1 py-1 text-center">
+                        {Math.abs(item.totalQtyOnSO || 0) > 0 ? (
+                          <div className="relative group">
+                            <span className="px-2 py-1 rounded cursor-pointer hover:opacity-80 bg-orange-50 text-orange-700">
+                              {Math.abs(item.totalQtyOnSO || 0).toLocaleString()}
+                            </span>
+                            <div className="absolute right-0 top-6 w-80 bg-gray-900 text-white text-xs rounded-lg p-3 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+                              <div className="font-semibold mb-2 text-yellow-300">Qty on SO Breakdown</div>
+                              <div className="mb-2 border-b border-gray-700 pb-2">
+                                <div className="text-red-300">Total On SO: <span className="text-white font-bold">{Math.abs(item.totalQtyOnSO || 0).toLocaleString()}</span></div>
+                              </div>
+                              <div className="font-medium mb-1 text-blue-300">Warehouse Breakdown:</div>
+                              <div className="space-y-1">
+                                {Object.entries(item.quantitiesOnSO || {})
+                                  .filter(([, qty]) => Math.abs(qty) > 0)
+                                  .map(([warehouse, qty]) => (
+                                    <div key={warehouse} className="flex justify-between gap-3">
+                                      <span className="text-gray-300">{warehouse}:</span>
+                                      <span className="text-red-100">{Math.abs(qty).toLocaleString()}</span>
+                                    </div>
+                                  ))}
+                              </div>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="relative group">
+                            <span className="text-gray-400 cursor-pointer">-</span>
+                            <div className="absolute right-0 top-6 w-80 bg-gray-900 text-white text-xs rounded-lg p-3 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+                              <div className="font-semibold mb-2 text-yellow-300">Qty on SO Breakdown</div>
+                              <div className="mb-2 border-b border-gray-700 pb-2">
+                                <div className="text-red-300">Total On SO: <span className="text-white font-bold">0</span></div>
+                              </div>
+                              <div className="font-medium mb-1 text-blue-300">No sales orders for this item</div>
+                            </div>
+                          </div>
+                        )}
+                      </td>
+                      
+                      {/* Qty Available with color-coded tooltip */}
+                      <td className="border-r border-b border-gray-200 px-1 py-1 text-center">
+                        <div className="relative group">
+                          <span className={`px-2 py-1 rounded cursor-pointer hover:opacity-80 ${getAvailabilityColorClass()}`}>
+                            {item.qtyAvailable.toLocaleString()}
+                          </span>
+                          <div className="absolute right-0 top-6 w-96 bg-gray-900 text-white text-xs rounded-lg p-3 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+                            <div className="font-semibold mb-2 text-yellow-300">Qty Available Breakdown</div>
+                            <div className="mb-2 border-b border-gray-700 pb-2">
+                              <div className="text-blue-300">On Hand: <span className="text-white">{item.totalQty.toLocaleString()}</span></div>
+                              <div className="text-green-300">On PO: <span className="text-white">+{item.totalQtyOnPO.toLocaleString()}</span></div>
+                              <div className="text-red-300">On SO: <span className="text-white">-{item.totalQtyOnSO.toLocaleString()}</span></div>
+                              <div className="text-yellow-300 font-bold mt-1 pt-1 border-t border-gray-700">Available: <span className="text-white">{item.qtyAvailable.toLocaleString()}</span></div>
+                            </div>
+                            <div className="font-medium mb-1 text-blue-300">Warehouse Breakdown:</div>
+                            <div className="space-y-2">
+                              {Object.entries(item.quantities || {})
+                                .filter(([, qty]) => qty > 0)
+                                .map(([warehouse, qty]) => {
+                                  const onPO = item.quantitiesOnPO?.[warehouse] || 0;
+                                  const onSO = item.quantitiesOnSO?.[warehouse] || 0;
+                                  const available = Math.max(0, qty + onPO - onSO);
+                                  
+                                  // Individual warehouse color coding
+                                  let warehouseColor = 'text-gray-400';
+                                  if (qty > 0) {
+                                    if (available <= 0) {
+                                      warehouseColor = 'text-red-400 font-bold';
+                                    } else if (available >= qty) {
+                                      warehouseColor = 'text-green-400 font-bold';
+                                    } else {
+                                      const ratio = available / qty;
+                                      if (ratio >= 0.7) {
+                                        warehouseColor = 'text-blue-400 font-bold';
+                                      } else if (ratio >= 0.3) {
+                                        warehouseColor = 'text-orange-400 font-bold';
+                                      } else {
+                                        warehouseColor = 'text-red-400 font-bold';
+                                      }
+                                    }
+                                  }
+                                  
+                                  return (
+                                    <div key={warehouse} className="ml-2 p-1 rounded bg-gray-800">
+                                      <div className="font-medium text-gray-200 mb-1">{warehouse}</div>
+                                      <div className="ml-2 space-y-0.5">
+                                        <div className="flex justify-between">
+                                          <span className="text-yellow-200">On Hand:</span>
+                                          <span className="text-yellow-100 font-medium">{qty.toLocaleString()}</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                          <span className="text-green-300">On PO:</span>
+                                          <span className={onPO > 0 ? "text-green-100 font-medium" : "text-gray-500"}>+{onPO.toLocaleString()}</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                          <span className="text-red-300">On SO:</span>
+                                          <span className={onSO > 0 ? "text-red-100 font-medium" : "text-gray-500"}>-{onSO.toLocaleString()}</span>
+                                        </div>
+                                        <div className="flex justify-between pt-0.5 border-t border-gray-700">
+                                          <span className="text-gray-300">Available:</span>
+                                          <span className={warehouseColor}>{available.toLocaleString()}</span>
+                                        </div>
                                       </div>
-                                    ))}
-                                </div>
-                                <div className="mt-2 pt-2 border-t border-gray-700 text-xs">
-                                  <div className="flex justify-between">
-                                    <span className="text-gray-400">Total:</span>
-                                    <span className="font-bold text-red-300">{item.totalQtyOnSO.toLocaleString()}</span>
+                                    </div>
+                                  );
+                                })}
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+                      
+                      {/* Regional columns - showing qty available */}
+                      {activeRegions.map(region => {
+                        const regionWarehouses = warehouseNames.filter(whName => 
+                          data.some(row => row.WHName === whName && row.WHRegion === region)
+                        );
+                        const regionOnHand = regionWarehouses.reduce((sum, whName) => {
+                          return sum + (item.quantities[whName] || 0);
+                        }, 0);
+                        const regionOnPO = regionWarehouses.reduce((sum, whName) => {
+                          return sum + (item.quantitiesOnPO?.[whName] || 0);
+                        }, 0);
+                        const regionOnSO = regionWarehouses.reduce((sum, whName) => {
+                          return sum + (item.quantitiesOnSO?.[whName] || 0);
+                        }, 0);
+                        const regionAvailable = Math.max(0, regionOnHand + regionOnPO - regionOnSO);
+                        
+                        return (
+                          <td key={region} className="border-r border-b border-gray-200 px-1 py-1 text-center">
+                            {regionAvailable > 0 || regionOnHand > 0 ? (
+                              <div className="relative group">
+                                <span className={`px-2 py-1 rounded cursor-pointer hover:opacity-80 ${getAvailabilityColorClass()}`}>
+                                  {regionAvailable.toLocaleString()}
+                                </span>
+                                <div className="absolute right-0 top-6 w-80 bg-gray-900 text-white text-xs rounded-lg p-3 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+                                  <div className="font-semibold mb-2 text-yellow-300">{region} Region Available</div>
+                                  <div className="mb-2 border-b border-gray-600 pb-2">
+                                    <div className="text-blue-300">Regional On Hand: <span className="text-white">{regionOnHand.toLocaleString()}</span></div>
+                                    <div className="text-green-300">Regional On PO: <span className="text-white">+{regionOnPO.toLocaleString()}</span></div>
+                                    <div className="text-red-300">Regional On SO: <span className="text-white">-{regionOnSO.toLocaleString()}</span></div>
+                                    <div className="text-yellow-300 font-bold mt-1 pt-1 border-t border-gray-700">Regional Available: <span className="text-white">{regionAvailable.toLocaleString()}</span></div>
+                                  </div>
+                                  <div className="font-medium mb-1 text-blue-300">Warehouse Breakdown:</div>
+                                  <div className="space-y-1">
+                                    {regionWarehouses.map((whName) => {
+                                      const qty = item.quantities[whName] || 0;
+                                      const onPO = item.quantitiesOnPO?.[whName] || 0;
+                                      const onSO = item.quantitiesOnSO?.[whName] || 0;
+                                      const available = Math.max(0, qty + onPO - onSO);
+                                      
+                                      // Individual warehouse color coding
+                                      let warehouseColor = 'text-gray-400';
+                                      if (qty > 0) {
+                                        if (available <= 0) {
+                                          warehouseColor = 'text-red-400 font-bold';
+                                        } else if (available >= qty) {
+                                          warehouseColor = 'text-green-400 font-bold';
+                                        } else {
+                                          const ratio = available / qty;
+                                          if (ratio >= 0.7) {
+                                            warehouseColor = 'text-blue-400 font-bold';
+                                          } else if (ratio >= 0.3) {
+                                            warehouseColor = 'text-orange-400 font-bold';
+                                          } else {
+                                            warehouseColor = 'text-red-400 font-bold';
+                                          }
+                                        }
+                                      }
+                                      
+                                      return (qty > 0 || onPO > 0 || onSO > 0) ? (
+                                        <div key={whName} className="ml-2 p-1 rounded bg-gray-800">
+                                          <div className="font-medium text-gray-200 mb-1">{whName}</div>
+                                          <div className="ml-2 space-y-0.5">
+                                            <div className="flex justify-between">
+                                              <span className="text-yellow-200">On Hand:</span>
+                                              <span className="text-yellow-100 font-medium">{qty.toLocaleString()}</span>
+                                            </div>
+                                            <div className="flex justify-between">
+                                              <span className="text-green-300">On PO:</span>
+                                              <span className={onPO > 0 ? "text-green-100 font-medium" : "text-gray-500"}>+{onPO.toLocaleString()}</span>
+                                            </div>
+                                            <div className="flex justify-between">
+                                              <span className="text-red-300">On SO:</span>
+                                              <span className={onSO > 0 ? "text-red-100 font-medium" : "text-gray-500"}>-{onSO.toLocaleString()}</span>
+                                            </div>
+                                            <div className="flex justify-between pt-0.5 border-t border-gray-700">
+                                              <span className="text-gray-300">Available:</span>
+                                              <span className={warehouseColor}>{available.toLocaleString()}</span>
+                                            </div>
+                                          </div>
+                                        </div>
+                                      ) : null;
+                                    })}
                                   </div>
                                 </div>
                               </div>
-                            }
-                          >
-                            <span className="hover:bg-red-50 px-1 py-0.5 rounded inline-block cursor-help">
-                              {item.totalQtyOnSO.toLocaleString()}
-                            </span>
-                          </CustomTooltip>
-                        ) : (
-                          <span>{item.totalQtyOnSO.toLocaleString()}</span>
-                        )}
-                      </div>
-                      <div className={`px-2 py-2 text-sm text-right font-semibold ${item.qtyAvailable < 0 ? 'text-red-600' : 'text-green-700'}`} style={{ minWidth: `${columnLayout.summaryColumns.individual}px`, width: `${columnLayout.summaryColumns.individual}px` }}>{item.qtyAvailable.toLocaleString()}</div>
-                    </div>
-                    
-                     {/* Warehouse columns - BULLETPROOF ALIGNMENT */}
-                     {renderWarehouseColumns(false, item)}
-                  </div>
-                </React.Fragment>
-              );
-            })}
-          </div>
-        </div>
+                            ) : (
+                              <span className="text-gray-400">-</span>
+                            )}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  );
+                })
+              ]).flat();
+            })()}
+          </tbody>
+        </table>
       </div>
 
       {/* Footer */}
@@ -602,7 +815,7 @@ export function PivotTable() {
           <span>Showing {filteredData.length} items</span>
           <div className="flex items-center gap-4">
             <span>Total Items: <strong>{pivotedData.length}</strong></span>
-            <span>Regions: <strong>{regions.length}</strong></span>
+            <span>Regions: <strong>{activeRegions.length}</strong></span>
             <span>Warehouses: <strong>{warehouseNames.length}</strong></span>
           </div>
         </div>

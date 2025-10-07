@@ -64,7 +64,7 @@ export function BarrelAvailability() {
         const data = lines.slice(1)
           .filter(line => line.trim())
           .map(line => {
-            const values = [];
+            const values: string[] = [];
             let currentValue = '';
             let inQuotes = false;
             
@@ -86,7 +86,7 @@ export function BarrelAvailability() {
               item[header] = values[index] || '';
             });
             
-            return item as WebportalItem;
+            return item as unknown as WebportalItem;
           })
           .filter(item => item.CURRENTLYAVAILABLE === 'Y');
         

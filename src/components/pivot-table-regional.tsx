@@ -43,8 +43,8 @@ function DetailModal({ isOpen, onClose, itemData, regions, warehousesByRegion }:
       <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[80vh] overflow-hidden">
         <div className="flex items-center justify-between p-4 border-b">
           <div>
-            <h2 className="text-lg font-semibold">{itemData.Description}</h2>
-            <p className="text-sm text-gray-600">Item ID: {itemData.ItemID}</p>
+            <h2 className="text-lg font-semibold">{itemData.itemDesc}</h2>
+            <p className="text-sm text-gray-600">Item ID: {itemData.itemId}</p>
           </div>
           <button
             onClick={onClose}
@@ -58,13 +58,13 @@ function DetailModal({ isOpen, onClose, itemData, regions, warehousesByRegion }:
           <div className="grid grid-cols-2 gap-4 mb-6">
             <div>
               <span className="text-sm font-medium text-gray-600">Group:</span>
-              <Badge className={`ml-2 ${groupColors[itemData.GRP] || groupColors["Other"]}`}>
-                {itemData.GRP}
+              <Badge className={`ml-2 ${groupColors[itemData.group as keyof typeof groupColors] || groupColors["Other"]}`}>
+                {itemData.group}
               </Badge>
             </div>
             <div>
               <span className="text-sm font-medium text-gray-600">Total Quantity:</span>
-              <span className="ml-2 font-bold text-lg">{(itemData.total || 0).toLocaleString()}</span>
+              <span className="ml-2 font-bold text-lg">{(itemData.totalQty || 0).toLocaleString()}</span>
             </div>
           </div>
 
@@ -176,12 +176,12 @@ export function PivotTableRegional() {
 
   const filteredData = pivotedData
     .filter(item => {
-      if (selectedGroup !== "all" && item.GRP !== selectedGroup) return false;
-      if (searchText && !item.Description.toLowerCase().includes(searchText.toLowerCase()) &&
-          !item.ItemID.toLowerCase().includes(searchText.toLowerCase())) return false;
+      if (selectedGroup !== "all" && item.group !== selectedGroup) return false;
+      if (searchText && !item.itemDesc.toLowerCase().includes(searchText.toLowerCase()) &&
+          !item.itemId.toLowerCase().includes(searchText.toLowerCase())) return false;
       return true;
     })
-    .sort((a, b) => b.total - a.total);
+    .sort((a, b) => b.totalQty - a.totalQty);
 
   const groupedByRegion = regions.reduce((acc, region) => {
     const regionWarehouses = warehouseNames.filter(name => 
@@ -317,16 +317,16 @@ export function PivotTableRegional() {
               }, {} as Record<string, number>);
 
               return (
-                <tr key={`${item.ItemID}-${index}`} className="hover:bg-gray-50">
+                <tr key={`${item.itemId}-${index}`} className="hover:bg-gray-50">
                   <td className="px-4 py-3 text-sm font-medium text-gray-900">
-                    {item.ItemID}
+                    {item.itemId}
                   </td>
                   <td className="px-4 py-3 text-sm text-gray-600 max-w-xs truncate">
-                    {item.Description}
+                    {item.itemDesc}
                   </td>
                   <td className="px-4 py-3">
-                    <Badge className={`text-xs ${groupColors[item.GRP] || groupColors["Other"]}`}>
-                      {item.GRP}
+                    <Badge className={`text-xs ${groupColors[item.group as keyof typeof groupColors] || groupColors["Other"]}`}>
+                      {item.group}
                     </Badge>
                   </td>
                   {regions.map(region => {
@@ -342,7 +342,7 @@ export function PivotTableRegional() {
                     );
                   })}
                   <td className="px-4 py-3 text-center text-sm font-mono font-bold bg-yellow-50">
-                    {(item.total || 0).toLocaleString()}
+                    {(item.totalQty || 0).toLocaleString()}
                   </td>
                   <td className="px-4 py-3 text-center">
                     <button

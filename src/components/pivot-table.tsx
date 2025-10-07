@@ -184,7 +184,7 @@ export function PivotTable() {
 
   // Get the current group color for header
   const getGroupColor = (group: string) => {
-    return groupColors[group] || groupColors["Other"];
+    return groupColors[group as keyof typeof groupColors] || groupColors["Other"];
   };
 
   return (
@@ -203,7 +203,7 @@ export function PivotTable() {
                 {groups.map(group => (
                   <SelectItem key={group} value={group}>
                     <div className="flex items-center gap-2">
-                      <div className={`w-3 h-3 rounded-full ${getGroupColor(group)}`}></div>
+                      <div className={`w-3 h-3 rounded-full ${groupColors[group as keyof typeof groupColors] || groupColors["Other"]}`}></div>
                       {group}
                     </div>
                   </SelectItem>

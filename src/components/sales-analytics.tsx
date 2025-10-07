@@ -34,7 +34,7 @@ export function SalesAnalytics() {
   useEffect(() => {
     const loadData = async () => {
       try {
-        const response = await fetch('/Availability.csv');
+        const response = await fetch('/Available2.csv');
         const csvContent = await response.text();
         const parsed = parseCSV(csvContent);
         setData(parsed);
@@ -55,23 +55,23 @@ export function SalesAnalytics() {
   // Calculate regional statistics
   const regionalStats: RegionalStats[] = getUniqueValues(data, 'WHRegion').map(region => {
     const regionData = data.filter(row => row.WHRegion === region);
-    const warehouses = getUniqueValues(regionData, 'wmcode').length;
+    const warehouses = getUniqueValues(regionData, 'WHCode').length;
     const lowStockItems = regionData.filter(row => row.QtyOnHand > 0 && row.QtyOnHand <= 50).length;
     
     return {
       region,
       totalItems: getUniqueValues(regionData, 'ITEMID').length,
       totalQty: regionData.reduce((sum, row) => sum + row.QtyOnHand, 0),
-      totalValue: regionData.reduce((sum, row) => sum + (row.AmountOnHand || 0), 0),
+      totalValue: 0, // Value data not available in Available2.csv structure
       warehouses,
       lowStockItems
     };
-  }).sort((a, b) => b.totalValue - a.totalValue);
+  }).sort((a, b) => b.totalQty - a.totalQty);
 
   // Calculate category statistics
   const categoryStats: CategoryStats[] = getUniqueValues(data, 'GRP').map(category => {
     const categoryData = data.filter(row => row.GRP === category);
-    const totalValue = categoryData.reduce((sum, row) => sum + (row.AmountOnHand || 0), 0);
+    const totalValue = 0; // Value data not available in Available2.csv structure
     const items = getUniqueValues(categoryData, 'ITEMID').length;
     
     return {
@@ -81,7 +81,7 @@ export function SalesAnalytics() {
       items,
       avgValue: items > 0 ? totalValue / items : 0
     };
-  }).sort((a, b) => b.totalValue - a.totalValue);
+  }).sort((a, b) => b.totalQty - a.totalQty);
 
   // Low stock alerts
   const lowStockAlerts = data
@@ -89,10 +89,10 @@ export function SalesAnalytics() {
     .sort((a, b) => a.QtyOnHand - b.QtyOnHand)
     .slice(0, 8);
 
-  // High value items
-  const highValueItems = data
-    .filter(row => (row.AmountOnHand || 0) > 1000)
-    .sort((a, b) => (b.AmountOnHand || 0) - (a.AmountOnHand || 0))
+  // High stock items (by quantity since value data not available)
+  const highStockItems = data
+    .filter(row => row.QtyOnHand > 100)
+    .sort((a, b) => b.QtyOnHand - a.QtyOnHand)
     .slice(0, 6);
 
   return (
@@ -172,7 +172,7 @@ export function SalesAnalytics() {
                 <div key={index} className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0">
                   <div className="flex-1">
                     <div className="text-sm font-medium text-gray-900 truncate">{item.ITEMDESC}</div>
-                    <div className="text-xs text-gray-500">{item.ITEMID} • {item.wmcode}</div>
+                    <div className="text-xs text-gray-500">{item.ITEMID} • {item.WHCode}</div>
                   </div>
                   <div className="text-right">
                     <div className="text-sm font-bold text-red-600">{item.QtyOnHand}</div>
@@ -184,25 +184,25 @@ export function SalesAnalytics() {
           </CardContent>
         </Card>
 
-        {/* High Value Items */}
+        {/* High Stock Items */}
         <Card className="bg-white border border-gray-200">
           <CardHeader>
             <CardTitle className="text-base font-semibold text-gray-900 flex items-center gap-2">
               <TrendingUp className="w-5 h-5 text-green-500" />
-              High Value Inventory
+              High Stock Items
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {highValueItems.map((item, index) => (
+              {highStockItems.map((item, index) => (
                 <div key={index} className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0">
                   <div className="flex-1">
                     <div className="text-sm font-medium text-gray-900 truncate">{item.ITEMDESC}</div>
-                    <div className="text-xs text-gray-500">{item.ITEMID} • {item.wmcode}</div>
+                    <div className="text-xs text-gray-500">{item.ITEMID} • {item.WHCode}</div>
                   </div>
                   <div className="text-right">
-                    <div className="text-sm font-bold text-green-600">${(item.AmountOnHand || 0).toLocaleString()}</div>
-                    <div className="text-xs text-gray-500">{item.QtyOnHand} units</div>
+                    <div className="text-sm font-bold text-green-600">{item.QtyOnHand.toLocaleString()}</div>
+                    <div className="text-xs text-gray-500">units</div>
                   </div>
                 </div>
               ))}

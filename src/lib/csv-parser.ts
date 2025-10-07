@@ -106,7 +106,7 @@ export function pivotData(data: InventoryRow[]): PivotedItem[] {
         itemId: row.ITEMID,
         itemDesc: row.ITEMDESC,
         group: row.GRP,
-        category: row.UCat,
+        category: row.GRP, // Using GRP as category since UCat not available
         quantities: {},
         quantitiesOnPO: {},
         quantitiesOnSO: {},
@@ -115,7 +115,7 @@ export function pivotData(data: InventoryRow[]): PivotedItem[] {
         totalQtyOnPO: 0,
         totalQtyOnSO: 0,
         qtyAvailable: 0,
-        avgCost: row.AverageCost || 0,
+        avgCost: 0, // Cost data not available in Available2.csv structure
         totalValue: 0,
         regions: {}
       });

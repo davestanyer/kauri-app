@@ -39,7 +39,6 @@ export function AvailabilityDashboard() {
 
   // Key metrics for sales reps
   const totalQuantity = data.reduce((sum, row) => sum + row.QtyOnHand, 0);
-  const totalValue = data.reduce((sum, row) => sum + (row.AmountOnHand || 0), 0);
   const totalRegions = getUniqueValues(data, 'WHRegion').length;
   
   // Items with stock
@@ -84,7 +83,7 @@ export function AvailabilityDashboard() {
             <div className="flex items-center gap-3">
               <DollarSign className="w-8 h-8 text-purple-600 bg-purple-100 rounded-lg p-2" />
               <div>
-                <div className="text-lg font-bold text-gray-900">${(totalValue / 1000).toFixed(0)}K</div>
+                <div className="text-lg font-bold text-gray-400">N/A</div>
                 <div className="text-xs text-gray-500">Total Value</div>
               </div>
             </div>

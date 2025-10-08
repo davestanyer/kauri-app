@@ -80,6 +80,57 @@ The application manages wine barrel and bottle inventory with:
 - Professional utility classes (text-slate-600, bg-logo-green, badge-sophisticated, badge-available, badge-category-barrels, etc.)
 - Clean, professional styling focused on usability and data clarity
 
+## Critical Pattern: Sticky Table Headers
+
+### MANDATORY Rules for Sticky Headers
+**When implementing sticky table headers, ALWAYS follow these rules:**
+
+1. **For headers sticky BOTH vertically AND horizontally:**
+   ```tsx
+   <th style={{ position: 'sticky', left: 0, top: 0, zIndex: 30 }}>
+     Item ID
+   </th>
+   ```
+   - MUST have `position: 'sticky'` (NOT className)
+   - MUST specify BOTH `left` AND `top` values
+   - Higher zIndex (30) for dual-sticky cells
+
+2. **For headers sticky ONLY vertically:**
+   ```tsx
+   <th style={{ position: 'sticky', top: 0, zIndex: 20 }}>
+     Column Name
+   </th>
+   ```
+   - MUST have `position: 'sticky'` (NOT className)
+   - MUST specify `top: 0`
+   - Lower zIndex (20) for single-sticky cells
+
+3. **For data cells sticky horizontally:**
+   ```tsx
+   <td className="sticky left-0 bg-inherit z-10">
+     {data}
+   </td>
+   ```
+   - Can use className for single-direction sticky
+   - MUST use `bg-inherit` to preserve row striping
+
+4. **Background colors:**
+   - ALL sticky headers MUST have explicit `backgroundColor` in style
+   - Use `bg-gray-100` class PLUS `backgroundColor` in style for consistency
+
+5. **Common Mistake - DO NOT DO THIS:**
+   ```tsx
+   {/* WRONG - will lose vertical sticky */}
+   <thead className="sticky top-0">
+     <th className="sticky left-0">...</th>
+   </thead>
+
+   {/* CORRECT - each <th> must have position: sticky */}
+   <thead>
+     <th style={{ position: 'sticky', left: 0, top: 0 }}>...</th>
+   </thead>
+   ```
+
 ## Critical Pattern: Bulletproof Table Column Alignment
 
 ### Problem Pattern

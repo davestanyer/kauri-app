@@ -2,9 +2,8 @@
 
 import { Button } from "@/components/ui/button";
 import { UserButton, useUser } from "@clerk/nextjs";
-import { 
-  Search, 
-  Bell, 
+import {
+  Search,
   Settings,
   Package
 } from "lucide-react";
@@ -44,14 +43,6 @@ export function DashboardHeader() {
                 className="bg-gray-50 border border-gray-200 rounded-lg px-4 py-2 pl-10 w-64 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
               />
             </div>
-
-            {/* Notifications */}
-            <Button variant="ghost" size="sm" className="relative text-gray-600 hover:text-gray-900 hover:bg-gray-100 p-2">
-              <Bell className="w-5 h-5" />
-              <div className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white rounded-full flex items-center justify-center text-xs font-medium">
-                3
-              </div>
-            </Button>
 
             {/* Settings */}
             <Button variant="ghost" size="sm" className="text-gray-600 hover:text-gray-900 hover:bg-gray-100 p-2">

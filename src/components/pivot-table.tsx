@@ -267,20 +267,20 @@ export function PivotTable() {
       {/* Pivot Table */}
       <div className="overflow-x-auto border border-gray-300 max-h-[80vh]">
         <table className="w-full border-collapse" style={{ fontSize: '11px' }}>
-          <thead className="sticky top-0 z-10">
+          <thead>
             <tr className="bg-gray-100">
-              <th rowSpan={2} className="border border-gray-300 px-2 py-2 text-left font-semibold text-gray-700" style={{ width: '140px' }}>
+              <th rowSpan={2} className="border border-gray-300 px-2 py-2 text-left font-semibold text-gray-700 bg-gray-100" style={{ position: 'sticky', left: 0, top: 0, width: '140px', zIndex: 30 }}>
                 Item ID
               </th>
-              <th rowSpan={2} className="border border-gray-300 px-2 py-2 text-left font-semibold text-gray-700" style={{ width: '300px' }}>
+              <th rowSpan={2} className="border border-gray-300 px-2 py-2 text-left font-semibold text-gray-700 bg-gray-100" style={{ position: 'sticky', top: 0, width: '300px', zIndex: 20 }}>
                 Description
               </th>
-              <th colSpan={4} className="border border-gray-300 px-2 py-2 text-center font-semibold text-gray-700" style={{ backgroundColor: '#F8F9FA' }}>
+              <th colSpan={4} className="border border-gray-300 px-2 py-2 text-center font-semibold text-gray-700" style={{ position: 'sticky', top: 0, backgroundColor: '#F8F9FA', zIndex: 20 }}>
                 Summary
               </th>
               {activeRegions.map((region) => {
                 return (
-                  <th key={region} rowSpan={2} className="border border-gray-300 px-2 py-2 text-center font-semibold text-gray-700" style={{ backgroundColor: '#F8FAFC' }}>
+                  <th key={region} rowSpan={2} className="border border-gray-300 px-2 py-2 text-center font-semibold text-gray-700 bg-gray-100" style={{ position: 'sticky', top: 0, backgroundColor: '#F8FAFC', zIndex: 20 }}>
                     {region}<br/>
                     <span className="text-xs font-normal">Qty Available</span>
                   </th>
@@ -288,16 +288,16 @@ export function PivotTable() {
               })}
             </tr>
             <tr className="bg-gray-100">
-              <th className="border border-gray-300 px-2 py-2 text-center font-semibold text-gray-700" style={{ width: '80px', backgroundColor: '#F0FDF4' }}>
+              <th className="border border-gray-300 px-2 py-2 text-center font-semibold text-gray-700" style={{ position: 'sticky', top: '34px', width: '80px', backgroundColor: '#F0FDF4', zIndex: 20 }}>
                 Total Qty on Hand
               </th>
-              <th className="border border-gray-300 px-2 py-2 text-center font-semibold text-gray-700" style={{ width: '80px', backgroundColor: '#E0F2FE' }}>
+              <th className="border border-gray-300 px-2 py-2 text-center font-semibold text-gray-700" style={{ position: 'sticky', top: '34px', width: '80px', backgroundColor: '#E0F2FE', zIndex: 20 }}>
                 Qty on PO
               </th>
-              <th className="border border-gray-300 px-2 py-2 text-center font-semibold text-gray-700" style={{ width: '80px', backgroundColor: '#FEF3C7' }}>
+              <th className="border border-gray-300 px-2 py-2 text-center font-semibold text-gray-700" style={{ position: 'sticky', top: '34px', width: '80px', backgroundColor: '#FEF3C7', zIndex: 20 }}>
                 Qty on SO
               </th>
-              <th className="border border-gray-300 px-2 py-2 text-center font-semibold text-gray-700" style={{ width: '80px', backgroundColor: '#E0F2FE' }}>
+              <th className="border border-gray-300 px-2 py-2 text-center font-semibold text-gray-700" style={{ position: 'sticky', top: '34px', width: '80px', backgroundColor: '#E0F2FE', zIndex: 20 }}>
                 Qty Available
               </th>
             </tr>
@@ -323,7 +323,7 @@ export function PivotTable() {
               return sortedGroups.map(([clipBd, items]) => [
                 // ClipBd header row
                 <tr key={`clipbd-${clipBd}`} style={{ backgroundColor: '#FED7AA' }}>
-                  <td colSpan={2 + 4 + activeRegions.length} className="border border-gray-300 px-3 py-1 font-bold">
+                  <td colSpan={2 + 4 + activeRegions.length} className="border border-gray-300 px-3 py-1 font-bold" style={{ backgroundColor: '#FED7AA' }}>
                     {clipBd}
                   </td>
                 </tr>,
@@ -355,10 +355,10 @@ export function PivotTable() {
                   return (
                     <tr key={`${clipBd}-${item.itemId}-${index}`} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
                       {/* Item ID */}
-                      <td className="border-l border-r border-b border-gray-200 px-2 py-1">
+                      <td className="border-l border-r border-b border-gray-200 px-2 py-1 sticky left-0 bg-inherit z-10">
                         {item.itemId}
                       </td>
-                      
+
                       {/* Description */}
                       <td className="border-r border-b border-gray-200 px-2 py-1">
                         <div className="truncate" title={item.itemDesc}>

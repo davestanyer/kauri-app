@@ -27,6 +27,7 @@ interface InventoryItem {
   other: number;
 }
 
+
 // Generate mock inventory data for demo purposes
 const generateMockInventory = (itemCode: string): InventoryItem => {
   const seed = parseInt(itemCode) || 0;
@@ -97,7 +98,7 @@ export function BarrelAvailability() {
         setLoading(false);
       }
     };
-    
+
     loadWebportalData();
   }, []);
 
@@ -135,12 +136,6 @@ export function BarrelAvailability() {
   };
 
   const groupedData = getGroupedData();
-  const lastUpdated = new Date().toLocaleDateString('en-GB');
-  const currentTime = new Date().toLocaleTimeString('en-US', { 
-    hour: '2-digit', 
-    minute: '2-digit',
-    hour12: true 
-  });
 
   if (loading) {
     return <div className="flex justify-center py-8">Loading...</div>;
@@ -174,51 +169,48 @@ export function BarrelAvailability() {
               <span>Hide unavailable items</span>
             </label>
           </div>
-          <div className="text-xs text-gray-500">
-            <span className="font-medium">Last Updated:</span> {lastUpdated} {currentTime}
-          </div>
         </div>
       </div>
       
       {/* Table */}
       <div className="overflow-x-auto border border-gray-300 max-h-[80vh]">
         <table className="w-full border-collapse" style={{ fontSize: '11px' }}>
-          <thead className="sticky top-0 z-10">
+          <thead>
             <tr className="bg-gray-100">
-              <th rowSpan={2} className="border border-gray-300 px-2 py-2 text-left font-semibold text-gray-700" style={{ width: '50px' }}>
+              <th rowSpan={2} className="border border-gray-300 px-2 py-2 text-left font-semibold text-gray-700 bg-gray-100" style={{ position: 'sticky', left: 0, top: 0, width: '80px', zIndex: 30 }}>
                 Item
               </th>
-              <th rowSpan={2} className="border border-gray-300 px-2 py-2 text-left font-semibold text-gray-700" style={{ width: '60px' }}>
+              <th rowSpan={2} className="border border-gray-300 px-2 py-2 text-left font-semibold text-gray-700 bg-gray-100" style={{ position: 'sticky', top: 0, width: '60px', zIndex: 20 }}>
                 Type
               </th>
-              <th rowSpan={2} className="border border-gray-300 px-2 py-2 text-left font-semibold text-gray-700" style={{ width: '100px' }}>
+              <th rowSpan={2} className="border border-gray-300 px-2 py-2 text-left font-semibold text-gray-700 bg-gray-100" style={{ position: 'sticky', top: 0, width: '100px', zIndex: 20 }}>
                 Wood
               </th>
-              <th rowSpan={2} className="border border-gray-300 px-1 py-2 text-center font-semibold text-gray-700" style={{ width: '25px' }}>
+              <th rowSpan={2} className="border border-gray-300 px-1 py-2 text-center font-semibold text-gray-700 bg-gray-100" style={{ position: 'sticky', top: 0, width: '25px', zIndex: 20 }}>
                 S
               </th>
-              <th rowSpan={2} className="border border-gray-300 px-2 py-2 text-center font-semibold text-gray-700" style={{ width: '70px' }}>
+              <th rowSpan={2} className="border border-gray-300 px-2 py-2 text-center font-semibold text-gray-700 bg-gray-100" style={{ position: 'sticky', top: 0, width: '70px', zIndex: 20 }}>
                 Seasoning
               </th>
-              <th rowSpan={2} className="border border-gray-300 px-2 py-2 text-center font-semibold text-gray-700" style={{ width: '45px' }}>
+              <th rowSpan={2} className="border border-gray-300 px-2 py-2 text-center font-semibold text-gray-700 bg-gray-100" style={{ position: 'sticky', top: 0, width: '45px', zIndex: 20 }}>
                 Grain
               </th>
-              <th rowSpan={2} className="border border-gray-300 px-2 py-2 text-center font-semibold text-gray-700" style={{ width: '55px' }}>
+              <th rowSpan={2} className="border border-gray-300 px-2 py-2 text-center font-semibold text-gray-700 bg-gray-100" style={{ position: 'sticky', top: 0, width: '55px', zIndex: 20 }}>
                 Size/Vol
               </th>
-              <th rowSpan={2} className="border border-gray-300 px-2 py-2 text-center font-semibold text-gray-700" style={{ width: '65px' }}>
+              <th rowSpan={2} className="border border-gray-300 px-2 py-2 text-center font-semibold text-gray-700 bg-gray-100" style={{ position: 'sticky', top: 0, width: '65px', zIndex: 20 }}>
                 Bending
               </th>
-              <th rowSpan={2} className="border border-gray-300 px-2 py-2 text-center font-semibold text-gray-700" style={{ width: '65px' }}>
+              <th rowSpan={2} className="border border-gray-300 px-2 py-2 text-center font-semibold text-gray-700 bg-gray-100" style={{ position: 'sticky', top: 0, width: '65px', zIndex: 20 }}>
                 Toasting
               </th>
-              <th rowSpan={2} className="border border-gray-300 px-2 py-2 text-center font-semibold text-gray-700" style={{ width: '80px', backgroundColor: '#F0FDF4' }}>
+              <th rowSpan={2} className="border border-gray-300 px-2 py-2 text-center font-semibold text-gray-700 bg-gray-100" style={{ position: 'sticky', top: 0, width: '80px', backgroundColor: '#F0FDF4', zIndex: 20 }}>
                 Price
               </th>
-              <th className="border border-gray-300 px-2 py-2 text-center font-semibold text-gray-700" style={{ width: '80px', backgroundColor: '#FEF3C7' }}>
+              <th className="border border-gray-300 px-2 py-2 text-center font-semibold text-gray-700 bg-gray-100" style={{ position: 'sticky', top: 0, width: '80px', backgroundColor: '#FEF3C7', zIndex: 20 }}>
                 Qty On Hand
               </th>
-              <th className="border border-gray-300 px-2 py-2 text-center font-semibold text-gray-700" style={{ width: '80px', backgroundColor: '#E0F2FE' }}>
+              <th className="border border-gray-300 px-2 py-2 text-center font-semibold text-gray-700 bg-gray-100" style={{ position: 'sticky', top: 0, width: '80px', backgroundColor: '#E0F2FE', zIndex: 20 }}>
                 Qty Available
               </th>
             </tr>
@@ -332,7 +324,7 @@ export function BarrelAvailability() {
                     
                     return (
                       <tr key={`${groupKey}-${index}`} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                        <td className="border-l border-r border-b border-gray-200 px-2 py-1">
+                        <td className="border-l border-r border-b border-gray-200 px-2 py-1 sticky left-0 bg-inherit z-10">
                           {item.KAURIITEMCODE}
                         </td>
                         <td className="border-r border-b border-gray-200 px-2 py-1">
@@ -526,7 +518,7 @@ export function BarrelAvailability() {
               // Return group header and items
               return [
                 <tr key={`group-${groupKey}`} style={{ backgroundColor: '#FED7AA' }}>
-                  <td colSpan={12} className="border border-gray-300 px-3 py-1 font-bold">
+                  <td colSpan={12} className="border border-gray-300 px-3 py-1 font-bold" style={{ backgroundColor: '#FED7AA' }}>
                     {brandName}
                   </td>
                 </tr>,

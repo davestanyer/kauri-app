@@ -272,7 +272,7 @@ export function PivotTable() {
               <th rowSpan={2} className="border border-gray-300 px-2 py-2 text-left font-semibold text-gray-700 bg-gray-100" style={{ position: 'sticky', left: 0, top: 0, width: '140px', zIndex: 30 }}>
                 Item ID
               </th>
-              <th rowSpan={2} className="border border-gray-300 px-2 py-2 text-left font-semibold text-gray-700 bg-gray-100" style={{ position: 'sticky', top: 0, width: '300px', zIndex: 20 }}>
+              <th rowSpan={2} className="border border-gray-300 px-2 py-2 text-left font-semibold text-gray-700 bg-gray-100" style={{ position: 'sticky', top: 0, width: '220px', zIndex: 20 }}>
                 Description
               </th>
               <th colSpan={4} className="border border-gray-300 px-2 py-2 text-center font-semibold text-gray-700" style={{ position: 'sticky', top: 0, backgroundColor: '#F8F9FA', zIndex: 20 }}>
@@ -288,17 +288,17 @@ export function PivotTable() {
               })}
             </tr>
             <tr className="bg-gray-100">
-              <th className="border border-gray-300 px-2 py-2 text-center font-semibold text-gray-700" style={{ position: 'sticky', top: '34px', width: '80px', backgroundColor: '#F0FDF4', zIndex: 20 }}>
-                Total Qty on Hand
+              <th className="border border-gray-300 px-1 py-2 text-center font-semibold text-gray-700" style={{ position: 'sticky', top: '34px', width: '75px', minWidth: '75px', maxWidth: '75px', backgroundColor: '#F0FDF4', zIndex: 20 }}>
+                <div className="whitespace-normal break-words leading-tight text-xs">Total Qty on Hand</div>
               </th>
-              <th className="border border-gray-300 px-2 py-2 text-center font-semibold text-gray-700" style={{ position: 'sticky', top: '34px', width: '80px', backgroundColor: '#E0F2FE', zIndex: 20 }}>
-                Qty on PO
+              <th className="border border-gray-300 px-1 py-2 text-center font-semibold text-gray-700" style={{ position: 'sticky', top: '34px', width: '75px', minWidth: '75px', maxWidth: '75px', backgroundColor: '#E0F2FE', zIndex: 20 }}>
+                <div className="whitespace-normal break-words leading-tight text-xs">Qty on PO</div>
               </th>
-              <th className="border border-gray-300 px-2 py-2 text-center font-semibold text-gray-700" style={{ position: 'sticky', top: '34px', width: '80px', backgroundColor: '#FEF3C7', zIndex: 20 }}>
-                Qty on SO
+              <th className="border border-gray-300 px-1 py-2 text-center font-semibold text-gray-700" style={{ position: 'sticky', top: '34px', width: '75px', minWidth: '75px', maxWidth: '75px', backgroundColor: '#FEF3C7', zIndex: 20 }}>
+                <div className="whitespace-normal break-words leading-tight text-xs">Qty on SO</div>
               </th>
-              <th className="border border-gray-300 px-2 py-2 text-center font-semibold text-gray-700" style={{ position: 'sticky', top: '34px', width: '80px', backgroundColor: '#E0F2FE', zIndex: 20 }}>
-                Qty Available
+              <th className="border border-gray-300 px-1 py-2 text-center font-semibold text-gray-700" style={{ position: 'sticky', top: '34px', width: '75px', minWidth: '75px', maxWidth: '75px', backgroundColor: '#E0F2FE', zIndex: 20 }}>
+                <div className="whitespace-normal break-words leading-tight text-xs">Qty Available</div>
               </th>
             </tr>
           </thead>
@@ -360,20 +360,20 @@ export function PivotTable() {
                       </td>
 
                       {/* Description */}
-                      <td className="border-r border-b border-gray-200 px-2 py-1">
-                        <div className="truncate" title={item.itemDesc}>
+                      <td className="border-r border-b border-gray-200 px-2 py-2">
+                        <div className="whitespace-normal break-words leading-tight" title={item.itemDesc}>
                           {item.itemDesc}
                         </div>
                       </td>
                       
                       {/* Total Qty on Hand with tooltip */}
-                      <td className="border-r border-b border-gray-200 px-1 py-1 text-center">
+                      <td className="border-r border-b border-gray-200 px-1 py-1 text-center" style={{ width: '75px', minWidth: '75px', maxWidth: '75px' }}>
                         {item.totalQty > 0 ? (
                           <div className="relative group">
                             <span className={`px-2 py-1 rounded cursor-pointer hover:opacity-80 ${item.totalQty > 0 ? 'bg-green-50 text-green-700' : 'text-gray-400'}`}>
                               {item.totalQty.toLocaleString()}
                             </span>
-                            <div className="absolute right-0 top-6 w-80 bg-gray-900 text-white text-xs rounded-lg p-3 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+                            <div className="absolute left-1/2 -translate-x-1/2 top-6 w-80 max-w-[90vw] bg-gray-900 text-white text-xs rounded-lg p-3 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
                               <div className="font-semibold mb-2 text-yellow-300">Total Qty on Hand Breakdown</div>
                               <div className="mb-2 border-b border-gray-700 pb-2">
                                 <div className="text-blue-300">Total On Hand: <span className="text-white font-bold">{item.totalQty.toLocaleString()}</span></div>
@@ -397,13 +397,13 @@ export function PivotTable() {
                       </td>
                       
                       {/* Qty on PO with detailed tooltip */}
-                      <td className="border-r border-b border-gray-200 px-1 py-1 text-center">
+                      <td className="border-r border-b border-gray-200 px-1 py-1 text-center" style={{ width: '75px', minWidth: '75px', maxWidth: '75px' }}>
                         {item.totalQtyOnPO > 0 ? (
                           <div className="relative group">
                             <span className="px-2 py-1 rounded cursor-pointer hover:opacity-80 bg-blue-50 text-blue-700">
                               {item.totalQtyOnPO.toLocaleString()}
                             </span>
-                            <div className="absolute right-0 top-6 w-80 bg-gray-900 text-white text-xs rounded-lg p-3 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+                            <div className="absolute left-1/2 -translate-x-1/2 top-6 w-80 max-w-[90vw] bg-gray-900 text-white text-xs rounded-lg p-3 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
                               <div className="font-semibold mb-2 text-yellow-300">Qty on PO Breakdown</div>
                               <div className="mb-2 border-b border-gray-700 pb-2">
                                 <div className="text-green-300">Total On PO: <span className="text-white font-bold">+{item.totalQtyOnPO.toLocaleString()}</span></div>
@@ -427,13 +427,13 @@ export function PivotTable() {
                       </td>
                       
                       {/* Qty on SO with detailed tooltip */}
-                      <td className="border-r border-b border-gray-200 px-1 py-1 text-center">
+                      <td className="border-r border-b border-gray-200 px-1 py-1 text-center" style={{ width: '75px', minWidth: '75px', maxWidth: '75px' }}>
                         {Math.abs(item.totalQtyOnSO || 0) > 0 ? (
                           <div className="relative group">
                             <span className="px-2 py-1 rounded cursor-pointer hover:opacity-80 bg-orange-50 text-orange-700">
                               {Math.abs(item.totalQtyOnSO || 0).toLocaleString()}
                             </span>
-                            <div className="absolute right-0 top-6 w-80 bg-gray-900 text-white text-xs rounded-lg p-3 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+                            <div className="absolute left-1/2 -translate-x-1/2 top-6 w-80 max-w-[90vw] bg-gray-900 text-white text-xs rounded-lg p-3 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
                               <div className="font-semibold mb-2 text-yellow-300">Qty on SO Breakdown</div>
                               <div className="mb-2 border-b border-gray-700 pb-2">
                                 <div className="text-red-300">Total On SO: <span className="text-white font-bold">{Math.abs(item.totalQtyOnSO || 0).toLocaleString()}</span></div>
@@ -454,7 +454,7 @@ export function PivotTable() {
                         ) : (
                           <div className="relative group">
                             <span className="text-gray-400 cursor-pointer">-</span>
-                            <div className="absolute right-0 top-6 w-80 bg-gray-900 text-white text-xs rounded-lg p-3 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+                            <div className="absolute left-1/2 -translate-x-1/2 top-6 w-80 max-w-[90vw] bg-gray-900 text-white text-xs rounded-lg p-3 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
                               <div className="font-semibold mb-2 text-yellow-300">Qty on SO Breakdown</div>
                               <div className="mb-2 border-b border-gray-700 pb-2">
                                 <div className="text-red-300">Total On SO: <span className="text-white font-bold">0</span></div>
@@ -466,12 +466,13 @@ export function PivotTable() {
                       </td>
                       
                       {/* Qty Available with color-coded tooltip */}
-                      <td className="border-r border-b border-gray-200 px-1 py-1 text-center">
-                        <div className="relative group">
-                          <span className={`px-2 py-1 rounded cursor-pointer hover:opacity-80 ${getAvailabilityColorClass()}`}>
-                            {item.qtyAvailable.toLocaleString()}
-                          </span>
-                          <div className="absolute right-0 top-6 w-96 bg-gray-900 text-white text-xs rounded-lg p-3 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+                      <td className="border-r border-b border-gray-200 px-1 py-1 text-center" style={{ width: '75px', minWidth: '75px', maxWidth: '75px' }}>
+                        {item.qtyAvailable !== 0 ? (
+                          <div className="relative group">
+                            <span className={`px-2 py-1 rounded cursor-pointer hover:opacity-80 ${getAvailabilityColorClass()}`}>
+                              {item.qtyAvailable.toLocaleString()}
+                            </span>
+                          <div className="absolute left-1/2 -translate-x-1/2 top-6 w-96 max-w-[90vw] bg-gray-900 text-white text-xs rounded-lg p-3 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
                             <div className="font-semibold mb-2 text-yellow-300">Qty Available Breakdown</div>
                             <div className="mb-2 border-b border-gray-700 pb-2">
                               <div className="text-blue-300">On Hand: <span className="text-white">{item.totalQty.toLocaleString()}</span></div>
@@ -533,9 +534,12 @@ export function PivotTable() {
                                 })}
                             </div>
                           </div>
-                        </div>
+                          </div>
+                        ) : (
+                          <span className="text-gray-400">-</span>
+                        )}
                       </td>
-                      
+
                       {/* Regional columns - showing qty available */}
                       {activeRegions.map(region => {
                         const regionWarehouses = warehouseNames.filter(whName => 
@@ -559,13 +563,13 @@ export function PivotTable() {
                                 <span className={`px-2 py-1 rounded cursor-pointer hover:opacity-80 ${getAvailabilityColorClass()}`}>
                                   {regionAvailable.toLocaleString()}
                                 </span>
-                                <div className="absolute right-0 top-6 w-80 bg-gray-900 text-white text-xs rounded-lg p-3 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+                                <div className="absolute left-1/2 -translate-x-1/2 top-6 w-80 max-w-[90vw] bg-gray-900 text-white text-xs rounded-lg p-3 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
                                   <div className="font-semibold mb-2 text-yellow-300">{region} Region Available</div>
                                   <div className="mb-2 border-b border-gray-600 pb-2">
-                                    <div className="text-blue-300">Regional On Hand: <span className="text-white">{regionOnHand.toLocaleString()}</span></div>
-                                    <div className="text-green-300">Regional On PO: <span className="text-white">+{regionOnPO.toLocaleString()}</span></div>
-                                    <div className="text-red-300">Regional On SO: <span className="text-white">-{regionOnSO.toLocaleString()}</span></div>
-                                    <div className="text-yellow-300 font-bold mt-1 pt-1 border-t border-gray-700">Regional Available: <span className="text-white">{regionAvailable.toLocaleString()}</span></div>
+                                    <div className="text-blue-300">On Hand: <span className="text-white">{regionOnHand.toLocaleString()}</span></div>
+                                    <div className="text-green-300">On PO: <span className="text-white">+{regionOnPO.toLocaleString()}</span></div>
+                                    <div className="text-red-300">On SO: <span className="text-white">-{regionOnSO.toLocaleString()}</span></div>
+                                    <div className="text-yellow-300 font-bold mt-1 pt-1 border-t border-gray-700">Available: <span className="text-white">{regionAvailable.toLocaleString()}</span></div>
                                   </div>
                                   <div className="font-medium mb-1 text-blue-300">Warehouse Breakdown:</div>
                                   <div className="space-y-1">
